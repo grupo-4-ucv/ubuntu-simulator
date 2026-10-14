@@ -1,0 +1,3407 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ubuntu GNOME Simulador Interactivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400&family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Ubuntu', 'sans-serif'],
+                        mono: ['Ubuntu Mono', 'monospace']
+                    },
+                    colors: {
+                        ubuntu: {
+                            orange: '#E95420',
+                            aubergine: '#2C001E',
+                            midAubergine: '#5E2750',
+                            lightAubergine: '#77216F',
+                            darkBg: '#1E1E1E',
+                            darkPanel: '#2D2D2D',
+                            darkHeader: '#242424',
+                            lightBg: '#FAFAFA',
+                            lightPanel: '#FFFFFF',
+                            lightHeader: '#EBEBEB'
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        * {
+            user-select: none;
+            box-sizing: border-box;
+        }
+        input, textarea, .selectable-text {
+            user-select: text;
+        }
+        body {
+            overflow: hidden;
+            font-family: 'Ubuntu', sans-serif;
+        }
+        .wp-default {
+            background: radial-gradient(circle at 80% 20%, #E95420 0%, #77216F 42%, #2C001E 100%);
+        }
+        .wp-aubergine {
+            background: linear-gradient(135deg, #2C001E 0%, #5E2750 50%, #924D8B 100%);
+        }
+        .wp-sunset {
+            background: linear-gradient(125deg, #1a0b2e 0%, #6b1d57 35%, #d64527 75%, #f79d42 100%);
+        }
+        .wp-ocean {
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        }
+        .wp-minimal {
+            background: linear-gradient(145deg, #232526 0%, #414345 100%);
+        }
+        .os-window {
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            transition: transform 0.14s ease, opacity 0.14s ease;
+        }
+        .os-window.active-window {
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(233, 84, 32, 0.55);
+        }
+        .os-window.minimized {
+            transform: scale(0.85) translateY(60px);
+            opacity: 0;
+            pointer-events: none;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(150, 150, 150, 0.35);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(233, 84, 32, 0.75);
+        }
+        .resize-handle-r {
+            position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: ew-resize; z-index: 20;
+        }
+        .resize-handle-b {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 6px; cursor: ns-resize; z-index: 20;
+        }
+        .resize-handle-br {
+            position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; cursor: nwse-resize; z-index: 25;
+        }
+        .desktop-icons-grid {
+            display: grid;
+            grid-auto-flow: column;
+            grid-template-rows: repeat(auto-fill, 96px);
+            gap: 0.75rem;
+            width: max-content;
+            height: 100%;
+            align-content: start;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden text-sm bg-ubuntu-aubergine text-gray-900 dark:text-gray-100">
+
+    <header id="top-bar" class="fixed top-0 left-0 right-0 h-7 bg-[#111111]/90 text-gray-100 flex items-center justify-between px-3 z-[5000] text-xs backdrop-blur-md border-b border-white/5">
+        <div class="flex items-center space-x-3">
+            <button id="btn-activities" class="px-2.5 py-0.5 rounded-full hover:bg-white/15 transition font-medium flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-ubuntu-orange inline-block"></span>
+                <span data-i18n="activities">Actividades</span>
+            </button>
+            <span id="topbar-active-app" class="font-semibold text-gray-300 hidden sm:inline">Ubuntu Desktop</span>
+        </div>
+
+        <div class="relative">
+            <button id="btn-clock" class="px-3 py-0.5 rounded-full hover:bg-white/15 transition font-medium tracking-wide">
+                <span id="clock-display">Oct 14 12:00</span>
+            </button>
+
+            <div id="calendar-popup" class="hidden absolute left-1/2 -translate-x-1/2 top-8 w-80 bg-ubuntu-darkPanel text-gray-100 rounded-2xl p-4 shadow-2xl border border-white/10 z-[5100]">
+                <div class="flex justify-between items-center border-b border-white/10 pb-3 mb-3">
+                    <div>
+                        <div id="cal-day-name" class="text-xs uppercase tracking-wider text-ubuntu-orange font-bold">Miércoles</div>
+                        <div id="cal-full-date" class="text-lg font-bold">14 de Octubre de 2026</div>
+                    </div>
+                    <i class="fa-regular fa-calendar-days text-2xl text-gray-400"></i>
+                </div>
+                <div class="text-xs text-gray-400 mb-2 flex justify-between">
+                    <span data-i18n="notifications">Notificaciones del sistema</span>
+                    <button id="btn-clear-notifs" class="text-ubuntu-orange hover:underline">Limpiar</button>
+                </div>
+                <div id="notification-list" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    <div class="bg-white/5 p-2.5 rounded-xl flex items-start gap-2.5">
+                        <i class="fa-brands fa-ubuntu text-ubuntu-orange text-base mt-0.5"></i>
+                        <div>
+                            <div class="font-semibold text-xs">Bienvenido a Ubuntu Simulador</div>
+                            <div class="text-[11px] text-gray-400">El sistema de archivos virtual IndexedDB está activo y sincronizado.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative flex items-center">
+            <button id="btn-sysmenu" class="flex items-center space-x-2.5 px-2.5 py-0.5 rounded-full hover:bg-white/15 transition">
+                <i id="ind-network" class="fa-solid fa-wifi text-xs"></i>
+                <i id="ind-sound" class="fa-solid fa-volume-high text-xs"></i>
+                <i class="fa-solid fa-battery-three-quarters text-xs"></i>
+                <i class="fa-solid fa-caret-down text-[10px] opacity-75"></i>
+            </button>
+
+            <div id="system-popup" class="hidden absolute right-0 top-8 w-80 bg-ubuntu-darkPanel text-gray-100 rounded-2xl p-4 shadow-2xl border border-white/10 z-[5100] space-y-4">
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3">
+                        <button id="btn-mute" class="w-6 text-center text-gray-300 hover:text-white">
+                            <i id="popup-vol-icon" class="fa-solid fa-volume-high"></i>
+                        </button>
+                        <input id="slider-volume" type="range" min="0" max="100" value="80" class="w-full accent-ubuntu-orange cursor-pointer h-1.5 bg-gray-600 rounded-lg">
+                        <span id="val-volume" class="w-8 text-right text-[11px] text-gray-300">80%</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-sun w-6 text-center text-gray-300"></i>
+                        <input id="slider-brightness" type="range" min="40" max="100" value="100" class="w-full accent-ubuntu-orange cursor-pointer h-1.5 bg-gray-600 rounded-lg">
+                        <span id="val-brightness" class="w-8 text-right text-[11px] text-gray-300">100%</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button id="qs-wifi-btn" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-ubuntu-orange text-white text-left transition">
+                        <i class="fa-solid fa-wifi text-sm"></i>
+                        <div class="overflow-hidden">
+                            <div class="font-semibold text-xs leading-tight">Wi-Fi</div>
+                            <div id="qs-wifi-sub" class="text-[10px] opacity-90 truncate">Ubuntu-Net-5G</div>
+                        </div>
+                    </button>
+                    <button id="qs-eth-btn" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-left transition">
+                        <i class="fa-solid fa-network-wired text-sm"></i>
+                        <div class="overflow-hidden">
+                            <div class="font-semibold text-xs leading-tight">Ethernet</div>
+                            <div id="qs-eth-sub" class="text-[10px] opacity-75 truncate">Conectado</div>
+                        </div>
+                    </button>
+                    <button id="qs-theme-btn" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-ubuntu-orange text-white text-left transition">
+                        <i class="fa-solid fa-moon text-sm"></i>
+                        <div>
+                            <div class="font-semibold text-xs leading-tight" data-i18n="darkMode">Modo Oscuro</div>
+                            <div id="qs-theme-sub" class="text-[10px] opacity-90">Activo</div>
+                        </div>
+                    </button>
+                    <button id="qs-settings-btn" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-left transition">
+                        <i class="fa-solid fa-sliders text-sm"></i>
+                        <div>
+                            <div class="font-semibold text-xs leading-tight" data-i18n="settings">Configuración</div>
+                            <div class="text-[10px] opacity-75">Panel total</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-white/10">
+                    <div class="flex items-center gap-2 text-xs text-gray-300">
+                        <i class="fa-solid fa-circle-user text-base text-ubuntu-orange"></i>
+                        <span id="qs-username" class="font-semibold">usuario@ubuntu-pc</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button id="qs-wizard-btn" title="Asistente de bienvenida" class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-xs">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </button>
+                        <button id="qs-restart-btn" title="Reiniciar vista de escritorio" class="p-2 rounded-full bg-white/10 hover:bg-red-500/80 text-xs transition">
+                            <i class="fa-solid fa-power-off"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main id="desktop-area" class="relative w-full h-full pt-7 pl-16 wp-default transition-all duration-300 overflow-hidden">
+
+        <aside id="ubuntu-dock" class="fixed left-0 top-7 bottom-0 w-16 bg-[#111111]/75 backdrop-blur-md border-r border-white/10 flex flex-col items-center justify-between py-2.5 z-[4000]">
+            <div id="dock-Pinned" class="flex flex-col items-center space-y-2 w-full"></div>
+            <div class="flex flex-col items-center space-y-2 w-full">
+                <button id="dock-btn-trash" class="relative group p-2.5 rounded-xl hover:bg-white/15 transition flex items-center justify-center" title="Papelera">
+                    <span id="dock-dot-trash" class="hidden absolute left-0.5 w-1.5 h-1.5 rounded-full bg-ubuntu-orange"></span>
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center shadow-md group-hover:scale-105 transition">
+                        <i class="fa-solid fa-trash-can text-white text-lg"></i>
+                    </div>
+                    <span class="pointer-events-none opacity-0 group-hover:opacity-100 transition bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md absolute left-16 whitespace-nowrap shadow-lg border border-white/10 z-50" data-i18n="trash">Papelera</span>
+                </button>
+                <button id="dock-btn-apps" class="group p-2.5 rounded-xl hover:bg-white/15 transition flex items-center justify-center" title="Mostrar aplicaciones">
+                    <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center group-hover:bg-ubuntu-orange transition">
+                        <i class="fa-solid fa-grip text-white text-xl"></i>
+                    </div>
+                    <span class="pointer-events-none opacity-0 group-hover:opacity-100 transition bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md absolute left-16 whitespace-nowrap shadow-lg border border-white/10 z-50" data-i18n="showApps">Mostrar aplicaciones</span>
+                </button>
+            </div>
+        </aside>
+
+        <section id="desktop-icons" class="p-4 desktop-icons-grid"></section>
+
+        <section id="windows-container" class="absolute inset-0 top-7 left-16 pointer-events-none overflow-hidden"></section>
+
+        <div id="activities-overlay" class="hidden fixed inset-0 top-7 left-16 bg-black/80 backdrop-blur-lg z-[4500] flex flex-col items-center p-8 overflow-y-auto">
+            <div class="w-full max-w-md mb-8">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-gray-400"></i>
+                    <input id="activities-search" type="text" placeholder="Escribe para buscar aplicaciones o archivos..." class="w-full pl-11 pr-4 py-2.5 rounded-full bg-white/10 text-white placeholder-gray-400 border border-white/15 focus:outline-none focus:border-ubuntu-orange">
+                </div>
+            </div>
+            <h3 class="text-xs uppercase tracking-widest text-gray-400 mb-4 font-semibold" data-i18n="installedApps">Aplicaciones del Sistema</h3>
+            <div id="activities-app-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 max-w-3xl w-full"></div>
+        </div>
+
+        <div id="context-menu" class="hidden fixed bg-ubuntu-lightPanel dark:bg-ubuntu-darkPanel text-gray-800 dark:text-gray-100 rounded-xl shadow-2xl border border-gray-300 dark:border-white/10 py-1.5 w-56 z-[6000] text-xs"></div>
+
+        <div id="os-modal-backdrop" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[7000] flex items-center justify-center p-4">
+            <div class="bg-ubuntu-lightPanel dark:bg-ubuntu-darkPanel text-gray-900 dark:text-gray-100 rounded-2xl max-w-md w-full shadow-2xl border border-gray-300 dark:border-white/10 overflow-hidden">
+                <div class="px-5 py-3.5 bg-ubuntu-lightHeader dark:bg-ubuntu-darkHeader border-b border-gray-300 dark:border-white/10 flex justify-between items-center">
+                    <h4 id="os-modal-title" class="font-bold text-sm">Confirmación del sistema</h4>
+                    <button id="os-modal-close" class="w-6 h-6 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <p id="os-modal-message" class="text-xs leading-relaxed text-gray-600 dark:text-gray-300"></p>
+                    <div id="os-modal-input-wrap" class="hidden">
+                        <input id="os-modal-input" type="text" class="w-full px-3 py-2 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 focus:outline-none focus:border-ubuntu-orange text-xs">
+                    </div>
+                    <div id="os-modal-buttons" class="flex justify-end gap-2 pt-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast-container" class="fixed bottom-5 right-5 z-[7500] space-y-2 pointer-events-none"></div>
+
+        <input type="file" id="host-file-input" class="hidden" multiple>
+        <input type="file" id="json-restore-input" accept=".json" class="hidden">
+    </main>
+
+    <div id="welcome-wizard" class="hidden fixed inset-0 bg-black/75 backdrop-blur-md z-[6500] flex items-center justify-center p-4">
+        <div class="bg-ubuntu-lightPanel dark:bg-ubuntu-darkPanel text-gray-900 dark:text-gray-100 rounded-2xl max-w-2xl w-full shadow-2xl border border-gray-300 dark:border-white/15 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 bg-gradient-to-r from-ubuntu-aubergine via-ubuntu-midAubergine to-ubuntu-orange text-white flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-2xl">
+                        <i class="fa-brands fa-ubuntu"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold">Asistente de Configuración de Ubuntu</h2>
+                        <p class="text-xs text-white/80">Personaliza tu entorno Linux interactivo (Simulado en navegador)</p>
+                    </div>
+                </div>
+                <button id="wiz-btn-skip" class="px-2.5 py-1 rounded-lg bg-black/25 hover:bg-black/40 text-xs">Omitir</button>
+            </div>
+
+            <div class="px-6 py-2.5 bg-ubuntu-lightHeader dark:bg-ubuntu-darkHeader border-b border-gray-200 dark:border-white/10 flex items-center justify-between text-xs">
+                <div id="wiz-step-ind-1" class="font-bold text-ubuntu-orange">1. Idioma y Zona</div>
+                <i class="fa-solid fa-chevron-right text-[10px] opacity-40"></i>
+                <div id="wiz-step-ind-2" class="opacity-60">2. Usuario y Equipo</div>
+                <i class="fa-solid fa-chevron-right text-[10px] opacity-40"></i>
+                <div id="wiz-step-ind-3" class="opacity-60">3. Apariencia</div>
+                <i class="fa-solid fa-chevron-right text-[10px] opacity-40"></i>
+                <div id="wiz-step-ind-4" class="opacity-60">4. Red Simulada</div>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 space-y-5">
+                <div id="wiz-step-1" class="space-y-4">
+                    <h3 class="text-base font-bold">Idioma, Teclado y Zona Horaria</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Idioma del sistema</label>
+                            <select id="wiz-lang" class="w-full p-2.5 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 text-xs">
+                                <option value="es">Español (España / Latinoamérica)</option>
+                                <option value="en">English (United States)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Distribución de teclado</label>
+                            <select id="wiz-kb" class="w-full p-2.5 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 text-xs">
+                                <option value="es">Español (ISO / Latam)</option>
+                                <option value="us">Inglés (US QWERTY)</option>
+                            </select>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-semibold mb-1">Zona Horaria</label>
+                            <select id="wiz-tz" class="w-full p-2.5 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 text-xs">
+                                <option value="America/Lima">America/Lima (Perú - PET)</option>
+                                <option value="Europe/Madrid">Europe/Madrid (España - CET)</option>
+                                <option value="America/Mexico_City">America/Mexico_City (México - CST)</option>
+                                <option value="America/Argentina/Buenos_Aires">America/Buenos_Aires (Argentina - ART)</option>
+                                <option value="America/Bogota">America/Bogota (Colombia - COT)</option>
+                                <option value="UTC">UTC (Tiempo Universal Coordinado)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="wiz-step-2" class="hidden space-y-4">
+                    <h3 class="text-base font-bold">¿Quién eres? (Cuenta y Nombre del Equipo)</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Esto configurará tu carpeta <code>/home/&lt;usuario&gt;</code> y el prompt de la Terminal Bash.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Nombre de usuario (sin espacios)</label>
+                            <input id="wiz-user" type="text" value="usuario" class="w-full p-2.5 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 text-xs font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Nombre del equipo (hostname)</label>
+                            <input id="wiz-host" type="text" value="ubuntu-pc" class="w-full p-2.5 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 text-xs font-mono">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="wiz-step-3" class="hidden space-y-4">
+                    <h3 class="text-base font-bold">Elige el aspecto de Ubuntu GNOME</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button type="button" id="wiz-theme-dark" class="p-4 rounded-xl border-2 border-ubuntu-orange bg-[#242424] text-white flex flex-col items-center gap-2">
+                            <i class="fa-solid fa-moon text-2xl text-ubuntu-orange"></i>
+                            <span class="font-bold text-xs">Yaru Oscuro (Recomendado)</span>
+                        </button>
+                        <button type="button" id="wiz-theme-light" class="p-4 rounded-xl border-2 border-transparent bg-gray-100 text-gray-900 flex flex-col items-center gap-2">
+                            <i class="fa-solid fa-sun text-2xl text-amber-500"></i>
+                            <span class="font-bold text-xs">Yaru Claro</span>
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-2">Fondo de pantalla</label>
+                        <div class="grid grid-cols-5 gap-2" id="wiz-wp-grid">
+                            <button type="button" data-wp="wp-default" class="h-12 rounded-lg wp-default border-2 border-white shadow"></button>
+                            <button type="button" data-wp="wp-aubergine" class="h-12 rounded-lg wp-aubergine border-2 border-transparent"></button>
+                            <button type="button" data-wp="wp-sunset" class="h-12 rounded-lg wp-sunset border-2 border-transparent"></button>
+                            <button type="button" data-wp="wp-ocean" class="h-12 rounded-lg wp-ocean border-2 border-transparent"></button>
+                            <button type="button" data-wp="wp-minimal" class="h-12 rounded-lg wp-minimal border-2 border-transparent"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="wiz-step-4" class="hidden space-y-4">
+                    <h3 class="text-base font-bold">Conectividad de Red Simulada</h3>
+                    <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-xs flex items-center gap-2.5">
+                        <i class="fa-solid fa-circle-info text-base"></i>
+                        <span>Nota de seguridad: Esta configuración es una simulación local en el navegador y no modifica la red real de tu equipo.</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Red Wi-Fi Simulada</label>
+                            <select id="wiz-ssid" class="w-full p-2.5 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 text-xs">
+                                <option value="Ubuntu-Net-5G">Ubuntu-Net-5G (Segura WPA3)</option>
+                                <option value="GNOME-Fiber-Plus">GNOME-Fiber-Plus (Segura WPA2)</option>
+                                <option value="Red-Invitados">Red-Invitados (Abierta)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1">Dirección IPv4 asignada</label>
+                            <input id="wiz-ip" type="text" value="192.168.1.45" class="w-full p-2.5 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 text-xs font-mono">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-3.5 bg-ubuntu-lightHeader dark:bg-ubuntu-darkHeader border-t border-gray-200 dark:border-white/10 flex justify-between items-center">
+                <button id="wiz-btn-prev" class="px-4 py-1.5 rounded-lg bg-gray-300 dark:bg-white/10 hover:opacity-90 text-xs font-semibold invisible">Anterior</button>
+                <div class="flex gap-2">
+                    <button id="wiz-btn-next" class="px-5 py-1.5 rounded-lg bg-ubuntu-orange hover:bg-orange-600 text-white text-xs font-semibold shadow">Siguiente</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const I18N = {
+            es: {
+                activities: "Actividades",
+                notifications: "Notificaciones del sistema",
+                darkMode: "Modo Oscuro",
+                settings: "Configuración",
+                trash: "Papelera",
+                showApps: "Mostrar aplicaciones",
+                installedApps: "Aplicaciones del Sistema"
+            },
+            en: {
+                activities: "Activities",
+                notifications: "System Notifications",
+                darkMode: "Dark Mode",
+                settings: "Settings",
+                trash: "Trash",
+                showApps: "Show Applications",
+                installedApps: "System Applications"
+            }
+        };
+
+        const SystemConfig = {
+            data: {
+                username: 'usuario',
+                hostname: 'ubuntu-pc',
+                language: 'es',
+                keyboard: 'es',
+                timezone: 'America/Lima',
+                use24h: true,
+                theme: 'dark',
+                wallpaper: 'wp-default',
+                volume: 80,
+                muted: false,
+                brightness: 100,
+                wizardCompleted: false,
+                network: {
+                    wifiEnabled: true,
+                    connectedSsid: 'Ubuntu-Net-5G',
+                    ethernetEnabled: true,
+                    mode: 'DHCP',
+                    ip: '192.168.1.45',
+                    netmask: '255.255.255.0',
+                    gateway: '192.168.1.1',
+                    dns: '8.8.8.8, 1.1.1.1'
+                }
+            },
+
+            load: function() {
+                try {
+                    const saved = localStorage.getItem('ubuntu_sim_config_v1');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed && typeof parsed === 'object') {
+                            this.data = Object.assign({}, this.data, parsed);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Error cargando config:', e);
+                }
+                this.applyAll();
+            },
+
+            save: function() {
+                try {
+                    localStorage.setItem('ubuntu_sim_config_v1', JSON.stringify(this.data));
+                } catch (e) {
+                    console.warn('Error guardando config:', e);
+                }
+                this.applyAll();
+                window.dispatchEvent(new CustomEvent('sysconfig-change'));
+            },
+
+            applyAll: function() {
+                const root = document.documentElement;
+                if (this.data.theme === 'dark') {
+                    root.classList.add('dark');
+                } else {
+                    root.classList.remove('dark');
+                }
+                const qsThemeBtn = document.getElementById('qs-theme-btn');
+                const qsThemeSub = document.getElementById('qs-theme-sub');
+                if (qsThemeBtn && qsThemeSub) {
+                    qsThemeBtn.className = 'flex items-center gap-2.5 p-2.5 rounded-xl text-left transition ' + (this.data.theme === 'dark' ? 'bg-ubuntu-orange text-white' : 'bg-white/10 text-gray-200');
+                    qsThemeSub.textContent = this.data.theme === 'dark' ? 'Activo' : 'Claro';
+                }
+
+                const desktop = document.getElementById('desktop-area');
+                if (desktop) {
+                    ['wp-default', 'wp-aubergine', 'wp-sunset', 'wp-ocean', 'wp-minimal'].forEach(function(w) {
+                        desktop.classList.remove(w);
+                    });
+                    desktop.classList.add(this.data.wallpaper || 'wp-default');
+                }
+
+                const qsUser = document.getElementById('qs-username');
+                if (qsUser) qsUser.textContent = this.data.username + '@' + this.data.hostname;
+
+                const indNet = document.getElementById('ind-network');
+                const qsWifiBtn = document.getElementById('qs-wifi-btn');
+                const qsWifiSub = document.getElementById('qs-wifi-sub');
+                const qsEthBtn = document.getElementById('qs-eth-btn');
+                const qsEthSub = document.getElementById('qs-eth-sub');
+
+                if (indNet) {
+                    if (this.data.network.wifiEnabled && this.data.network.connectedSsid) {
+                        indNet.className = 'fa-solid fa-wifi text-xs';
+                    } else if (this.data.network.ethernetEnabled) {
+                        indNet.className = 'fa-solid fa-network-wired text-xs';
+                    } else {
+                        indNet.className = 'fa-solid fa-plane-up text-xs text-amber-400';
+                    }
+                }
+                if (qsWifiBtn && qsWifiSub) {
+                    qsWifiBtn.className = 'flex items-center gap-2.5 p-2.5 rounded-xl text-left transition ' + (this.data.network.wifiEnabled ? 'bg-ubuntu-orange text-white' : 'bg-white/10 text-gray-300');
+                    qsWifiSub.textContent = this.data.network.wifiEnabled ? (this.data.network.connectedSsid || 'Sin red') : 'Apagado';
+                }
+                if (qsEthBtn && qsEthSub) {
+                    qsEthBtn.className = 'flex items-center gap-2.5 p-2.5 rounded-xl text-left transition ' + (this.data.network.ethernetEnabled ? 'bg-ubuntu-orange text-white' : 'bg-white/10 text-gray-300');
+                    qsEthSub.textContent = this.data.network.ethernetEnabled ? 'Conectado' : 'Desconectado';
+                }
+
+                const dict = I18N[this.data.language] || I18N.es;
+                document.querySelectorAll('[data-i18n]').forEach(function(el) {
+                    const key = el.getAttribute('data-i18n');
+                    if (dict[key]) el.textContent = dict[key];
+                });
+
+                if (VFS.ready) {
+                    VFS.writeFile('/etc/hostname', this.data.hostname + '\n', true);
+                }
+            },
+
+            toggleTheme: function() {
+                this.data.theme = this.data.theme === 'dark' ? 'light' : 'dark';
+                this.save();
+            },
+
+            toggleWifiQuick: function() {
+                this.data.network.wifiEnabled = !this.data.network.wifiEnabled;
+                this.save();
+            },
+
+            toggleEthQuick: function() {
+                this.data.network.ethernetEnabled = !this.data.network.ethernetEnabled;
+                this.save();
+            }
+        };
+
+        const VFS = {
+            dbName: 'UbuntuGNOME_VFS_DB',
+            storeName: 'filesystem',
+            db: null,
+            nodes: {},
+            ready: false,
+            clipboard: null,
+
+            init: function() {
+                const self = this;
+                return new Promise(function(resolve) {
+                    try {
+                        const req = indexedDB.open(self.dbName, 1);
+                        req.onupgradeneeded = function(e) {
+                            const db = e.target.result;
+                            if (!db.objectStoreNames.contains(self.storeName)) {
+                                db.createObjectStore(self.storeName);
+                            }
+                        };
+                        req.onsuccess = function(e) {
+                            self.db = e.target.result;
+                            self.loadFromDB().then(function(loaded) {
+                                if (!loaded || Object.keys(self.nodes).length === 0) {
+                                    self.seedDefaultFilesystem();
+                                    self.saveToDB().then(function() {
+                                        self.ready = true;
+                                        self.emitChange();
+                                        resolve();
+                                    });
+                                } else {
+                                    self.ready = true;
+                                    self.emitChange();
+                                    resolve();
+                                }
+                            });
+                        };
+                        req.onerror = function() {
+                            self.loadFallback();
+                            resolve();
+                        };
+                    } catch (err) {
+                        self.loadFallback();
+                        resolve();
+                    }
+                });
+            },
+
+            loadFallback: function() {
+                try {
+                    const backup = localStorage.getItem('ubuntu_vfs_fallback');
+                    if (backup) {
+                        const parsed = JSON.parse(backup);
+                        if (parsed && typeof parsed === 'object') {
+                            this.nodes = parsed;
+                        } else {
+                            this.seedDefaultFilesystem();
+                        }
+                    } else {
+                        this.seedDefaultFilesystem();
+                    }
+                } catch (err) {
+                    this.seedDefaultFilesystem();
+                }
+                this.ready = true;
+                this.emitChange();
+            },
+
+            loadFromDB: function() {
+                const self = this;
+                return new Promise(function(resolve) {
+                    if (!self.db) return resolve(false);
+                    try {
+                        const tx = self.db.transaction(self.storeName, 'readonly');
+                        const store = tx.objectStore(self.storeName);
+                        const getReq = store.get('root_tree');
+                        getReq.onsuccess = function() {
+                            if (getReq.result && typeof getReq.result === 'object') {
+                                self.nodes = getReq.result;
+                                resolve(true);
+                            } else {
+                                resolve(false);
+                            }
+                        };
+                        getReq.onerror = function() { resolve(false); };
+                    } catch (e) {
+                        resolve(false);
+                    }
+                });
+            },
+
+            saveToDB: function(silent) {
+                const self = this;
+                return new Promise(function(resolve) {
+                    try {
+                        localStorage.setItem('ubuntu_vfs_fallback', JSON.stringify(self.nodes));
+                    } catch (e) {}
+                    if (!self.db) {
+                        if (!silent) self.emitChange();
+                        return resolve();
+                    }
+                    try {
+                        const tx = self.db.transaction(self.storeName, 'readwrite');
+                        const store = tx.objectStore(self.storeName);
+                        store.put(self.nodes, 'root_tree');
+                        tx.oncomplete = function() {
+                            if (!silent) self.emitChange();
+                            resolve();
+                        };
+                        tx.onerror = function() { resolve(); };
+                    } catch (e) {
+                        resolve();
+                    }
+                });
+            },
+
+            emitChange: function() {
+                window.dispatchEvent(new CustomEvent('vfs-change'));
+            },
+
+            getHomeDir: function() {
+                return '/home/' + SystemConfig.data.username;
+            },
+
+            seedDefaultFilesystem: function() {
+                const now = new Date().toISOString();
+                const u = SystemConfig.data.username || 'usuario';
+                const h = '/home/' + u;
+
+                const tree = {};
+                tree['/'] = { type: 'dir', name: '', mtime: now };
+                tree['/home'] = { type: 'dir', name: 'home', mtime: now };
+                tree[h] = { type: 'dir', name: u, mtime: now };
+                tree[h + '/Escritorio'] = { type: 'dir', name: 'Escritorio', mtime: now };
+                tree[h + '/Documentos'] = { type: 'dir', name: 'Documentos', mtime: now };
+                tree[h + '/Descargas'] = { type: 'dir', name: 'Descargas', mtime: now };
+                tree[h + '/Imágenes'] = { type: 'dir', name: 'Imágenes', mtime: now };
+                tree['/tmp'] = { type: 'dir', name: 'tmp', mtime: now };
+                tree['/etc'] = { type: 'dir', name: 'etc', mtime: now };
+                tree['/usr'] = { type: 'dir', name: 'usr', mtime: now };
+                tree['/usr/bin'] = { type: 'dir', name: 'bin', mtime: now };
+                tree['/var'] = { type: 'dir', name: 'var', mtime: now };
+                tree['/var/log'] = { type: 'dir', name: 'log', mtime: now };
+                tree['/.trash'] = { type: 'dir', name: '.trash', mtime: now };
+
+                tree[h + '/Escritorio/leeme.txt'] = {
+                    type: 'file',
+                    name: 'leeme.txt',
+                    mtime: now,
+                    content: '¡Bienvenido al Simulador Interactivo de Ubuntu GNOME Desktop!\n\nEste sistema cuenta con un Sistema de Archivos Virtual (VFS) persistente en IndexedDB.\n\nCosas que puedes probar:\n1. Abre la Terminal y ejecuta: ls -la, cd Escritorio, cat leeme.txt, echo "Hola Linux" > prueba.txt\n2. Observa cómo el archivo "prueba.txt" aparece al instante en el Escritorio y en el Explorador de Archivos.\n3. Edita cualquier archivo con el Editor de Texto y guárdalo.\n4. Elimina elementos y recupéralos desde la Papelera.\n5. Importa archivos reales desde tu ordenador o descárgalos.'
+                };
+                tree[h + '/Escritorio/hola.sh'] = {
+                    type: 'file',
+                    name: 'hola.sh',
+                    mtime: now,
+                    content: '#!/bin/bash\n# Script de demostración\necho "¡Hola desde Ubuntu 24.04 LTS (Simulador Web)!"\nwhoami\nuname -a\n'
+                };
+                tree[h + '/Documentos/notas_proyecto.txt'] = {
+                    type: 'file',
+                    name: 'notas_proyecto.txt',
+                    mtime: now,
+                    content: 'Lista de tareas pendientes en Linux:\n- Practicar comandos básicos en la terminal Bash (pwd, ls, cp, mv, rm, mkdir, find)\n- Revisar archivos de configuración en /etc/os-release\n- Personalizar el tema Claro/Oscuro en Configuración.'
+                };
+                tree[h + '/Documentos/guia_comandos.md'] = {
+                    type: 'file',
+                    name: 'guia_comandos.md',
+                    mtime: now,
+                    content: '# Guía Rápida de Comandos Soportados\n\n- pwd: Muestra el directorio actual\n- ls [-l|-a|-la]: Lista archivos y permisos\n- cd <ruta>: Cambia de directorio (soporta ~, .., -)\n- mkdir [-p] <nombre>: Crea directorios\n- touch <archivo>: Crea un archivo vacío o actualiza su fecha\n- cat <archivo>: Muestra el contenido de un archivo\n- echo "texto" > archivo.txt: Escribe texto en un archivo\n- cp [-r] <origen> <destino>: Copia archivos o carpetas\n- mv <origen> <destino>: Mueve o renombra\n- rm [-r] <ruta>: Elimina archivos o carpetas\n- find <ruta> -name <patrón>: Busca archivos en el sistema'
+                };
+                tree['/etc/hostname'] = {
+                    type: 'file',
+                    name: 'hostname',
+                    mtime: now,
+                    content: SystemConfig.data.hostname + '\n'
+                };
+                tree['/etc/os-release'] = {
+                    type: 'file',
+                    name: 'os-release',
+                    mtime: now,
+                    content: 'PRETTY_NAME="Ubuntu 24.04.1 LTS (Web Simulator)"\nNAME="Ubuntu"\nVERSION_ID="24.04"\nVERSION="24.04.1 LTS (Noble Numbat)"\nID=ubuntu\nHOME_URL="https://www.ubuntu.com/"\n'
+                };
+                tree['/etc/passwd'] = {
+                    type: 'file',
+                    name: 'passwd',
+                    mtime: now,
+                    content: 'root:x:0:0:root:/root:/bin/bash\n' + u + ':x:1000:1000:' + u + ':/home/' + u + ':/bin/bash\n'
+                };
+                tree['/var/log/syslog'] = {
+                    type: 'file',
+                    name: 'syslog',
+                    mtime: now,
+                    content: 'Oct 14 00:00:01 ubuntu-pc systemd[1]: Started GNOME Display Manager.\nOct 14 00:00:02 ubuntu-pc kernel: [0.000000] Linux version 6.8.0-generic (Web-VFS)\nOct 14 00:00:04 ubuntu-pc NetworkManager[412]: <info> Wi-Fi connected to Ubuntu-Net-5G.\n'
+                };
+
+                this.nodes = tree;
+            },
+
+            resolvePath: function(inputPath, cwd) {
+                const baseCwd = cwd || '/';
+                if (!inputPath || inputPath.trim() === '') return baseCwd;
+                let p = inputPath.trim();
+                const home = this.getHomeDir();
+
+                if (p === '~') return home;
+                if (p.indexOf('~/') === 0) p = home + p.slice(1);
+                else if (p.indexOf('/') !== 0) {
+                    p = (baseCwd === '/' ? '' : baseCwd) + '/' + p;
+                }
+
+                const parts = p.split('/');
+                const stack = [];
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    if (!part || part === '.') continue;
+                    if (part === '..') {
+                        stack.pop();
+                    } else {
+                        stack.push(part);
+                    }
+                }
+                return '/' + stack.join('/');
+            },
+
+            getParentPath: function(path) {
+                const norm = this.resolvePath(path);
+                if (norm === '/') return '/';
+                const idx = norm.lastIndexOf('/');
+                return idx <= 0 ? '/' : norm.slice(0, idx);
+            },
+
+            getBaseName: function(path) {
+                const norm = this.resolvePath(path);
+                if (norm === '/') return '/';
+                return norm.slice(norm.lastIndexOf('/') + 1);
+            },
+
+            exists: function(path) {
+                return Boolean(this.nodes[this.resolvePath(path)]);
+            },
+
+            getNode: function(path) {
+                return this.nodes[this.resolvePath(path)] || null;
+            },
+
+            listDir: function(dirPath, showHidden) {
+                const norm = this.resolvePath(dirPath);
+                const dirNode = this.nodes[norm];
+                if (!dirNode || dirNode.type !== 'dir') return null;
+
+                const results = [];
+                const prefix = norm === '/' ? '/' : norm + '/';
+                const keys = Object.keys(this.nodes);
+
+                for (let i = 0; i < keys.length; i++) {
+                    const k = keys[i];
+                    const node = this.nodes[k];
+                    if (k === norm) continue;
+                    if (k.indexOf(prefix) === 0) {
+                        const rest = k.slice(prefix.length);
+                        if (rest.indexOf('/') === -1) {
+                            if (!showHidden && node.name.indexOf('.') === 0) continue;
+                            results.push(Object.assign({ path: k }, node));
+                        }
+                    }
+                }
+
+                return results.sort(function(a, b) {
+                    if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                });
+            },
+
+            mkdir: function(dirPath, parents) {
+                const norm = this.resolvePath(dirPath);
+                if (this.nodes[norm]) {
+                    if (parents && this.nodes[norm].type === 'dir') return { ok: true };
+                    return { ok: false, error: 'mkdir: no se puede crear el directorio «' + dirPath + '»: El archivo ya existe' };
+                }
+
+                if (parents) {
+                    const parts = norm.split('/').filter(Boolean);
+                    let curr = '';
+                    for (let i = 0; i < parts.length; i++) {
+                        const part = parts[i];
+                        curr += '/' + part;
+                        if (!this.nodes[curr]) {
+                            this.nodes[curr] = { type: 'dir', name: part, mtime: new Date().toISOString() };
+                        } else if (this.nodes[curr].type !== 'dir') {
+                            return { ok: false, error: 'mkdir: «' + curr + '» no es un directorio' };
+                        }
+                    }
+                    this.saveToDB();
+                    return { ok: true };
+                } else {
+                    const parent = this.getParentPath(norm);
+                    if (!this.nodes[parent] || this.nodes[parent].type !== 'dir') {
+                        return { ok: false, error: 'mkdir: no se puede crear el directorio «' + dirPath + '»: No existe el archivo o el directorio' };
+                    }
+                    this.nodes[norm] = {
+                        type: 'dir',
+                        name: this.getBaseName(norm),
+                        mtime: new Date().toISOString()
+                    };
+                    this.saveToDB();
+                    return { ok: true };
+                }
+            },
+
+            writeFile: function(filePath, content, silent) {
+                const norm = this.resolvePath(filePath);
+                const parent = this.getParentPath(norm);
+                if (!this.nodes[parent] || this.nodes[parent].type !== 'dir') {
+                    return { ok: false, error: 'No existe el directorio padre «' + parent + '»' };
+                }
+                if (this.nodes[norm] && this.nodes[norm].type === 'dir') {
+                    return { ok: false, error: '«' + filePath + '»: Es un directorio' };
+                }
+                this.nodes[norm] = {
+                    type: 'file',
+                    name: this.getBaseName(norm),
+                    content: String(content || ''),
+                    mtime: new Date().toISOString()
+                };
+                this.saveToDB(Boolean(silent));
+                return { ok: true };
+            },
+
+            touch: function(filePath) {
+                const norm = this.resolvePath(filePath);
+                if (this.nodes[norm]) {
+                    this.nodes[norm].mtime = new Date().toISOString();
+                    this.saveToDB();
+                    return { ok: true };
+                }
+                return this.writeFile(norm, '');
+            },
+
+            readFile: function(filePath) {
+                const norm = this.resolvePath(filePath);
+                const node = this.nodes[norm];
+                if (!node) return { ok: false, error: '«' + filePath + '»: No existe el archivo o el directorio' };
+                if (node.type === 'dir') return { ok: false, error: '«' + filePath + '»: Es un directorio' };
+                return { ok: true, content: node.content || '' };
+            },
+
+            copy: function(srcPath, destPath, recursive) {
+                const isRec = recursive !== false;
+                const src = this.resolvePath(srcPath);
+                let dest = this.resolvePath(destPath);
+                const srcNode = this.nodes[src];
+                if (!srcNode) return { ok: false, error: 'cp: no se puede efectuar stat sobre «' + srcPath + '»: No existe el archivo o el directorio' };
+
+                if (this.nodes[dest] && this.nodes[dest].type === 'dir') {
+                    dest = (dest === '/' ? '' : dest) + '/' + srcNode.name;
+                }
+                if (src === dest) {
+                    dest = dest + ' (copia)';
+                }
+                if (srcNode.type === 'dir' && !isRec) {
+                    return { ok: false, error: 'cp: se omite el directorio «' + srcPath + '» (usa -r)' };
+                }
+
+                const now = new Date().toISOString();
+                const prefix = src + '/';
+                const keys = Object.keys(this.nodes).filter(function(k) {
+                    return k === src || k.indexOf(prefix) === 0;
+                });
+
+                for (let i = 0; i < keys.length; i++) {
+                    const k = keys[i];
+                    const v = this.nodes[k];
+                    const newKey = dest + k.slice(src.length);
+                    this.nodes[newKey] = Object.assign({}, v, {
+                        name: this.getBaseName(newKey),
+                        mtime: now
+                    });
+                }
+                this.saveToDB();
+                return { ok: true, dest: dest };
+            },
+
+            move: function(srcPath, destPath) {
+                const src = this.resolvePath(srcPath);
+                let dest = this.resolvePath(destPath);
+                const srcNode = this.nodes[src];
+                if (!srcNode) return { ok: false, error: 'mv: no se puede efectuar stat sobre «' + srcPath + '»: No existe el archivo o el directorio' };
+
+                if (this.nodes[dest] && this.nodes[dest].type === 'dir' && src !== dest) {
+                    dest = (dest === '/' ? '' : dest) + '/' + srcNode.name;
+                }
+                if (src === dest) return { ok: true };
+
+                const prefix = src + '/';
+                const keys = Object.keys(this.nodes).filter(function(k) {
+                    return k === src || k.indexOf(prefix) === 0;
+                });
+                for (let i = 0; i < keys.length; i++) {
+                    const k = keys[i];
+                    const v = this.nodes[k];
+                    const newKey = dest + k.slice(src.length);
+                    this.nodes[newKey] = Object.assign({}, v, {
+                        name: this.getBaseName(newKey),
+                        mtime: new Date().toISOString()
+                    });
+                    delete this.nodes[k];
+                }
+                this.saveToDB();
+                return { ok: true, dest: dest };
+            },
+
+            moveToTrash: function(targetPath) {
+                const norm = this.resolvePath(targetPath);
+                if (norm === '/' || norm === '/.trash' || norm === this.getHomeDir()) {
+                    return { ok: false, error: 'No se puede mover un directorio crítico del sistema a la papelera.' };
+                }
+                const node = this.nodes[norm];
+                if (!node) return { ok: false, error: 'El elemento no existe.' };
+
+                const stamp = Date.now();
+                const trashPath = '/.trash/' + stamp + '_' + node.name;
+                const prefix = norm + '/';
+                const keys = Object.keys(this.nodes).filter(function(k) {
+                    return k === norm || k.indexOf(prefix) === 0;
+                });
+
+                for (let i = 0; i < keys.length; i++) {
+                    const k = keys[i];
+                    const v = this.nodes[k];
+                    const newKey = trashPath + k.slice(norm.length);
+                    this.nodes[newKey] = Object.assign({}, v, {
+                        originalPath: k === norm ? norm : undefined,
+                        deletedAt: new Date().toISOString()
+                    });
+                    delete this.nodes[k];
+                }
+                this.saveToDB();
+                return { ok: true };
+            },
+
+            restoreFromTrash: function(trashItemPath) {
+                const node = this.nodes[trashItemPath];
+                if (!node) return { ok: false, error: 'Elemento no encontrado en la papelera.' };
+                let restoreDest = node.originalPath || (this.getHomeDir() + '/Escritorio/' + node.name);
+                const parent = this.getParentPath(restoreDest);
+                if (!this.nodes[parent]) {
+                    this.mkdir(parent, true);
+                }
+                if (this.nodes[restoreDest]) {
+                    restoreDest = restoreDest + '_restaurado';
+                }
+
+                const prefix = trashItemPath + '/';
+                const keys = Object.keys(this.nodes).filter(function(k) {
+                    return k === trashItemPath || k.indexOf(prefix) === 0;
+                });
+                for (let i = 0; i < keys.length; i++) {
+                    const k = keys[i];
+                    const v = this.nodes[k];
+                    const newKey = restoreDest + k.slice(trashItemPath.length);
+                    const clean = Object.assign({}, v, {
+                        name: this.getBaseName(newKey),
+                        mtime: new Date().toISOString()
+                    });
+                    delete clean.originalPath;
+                    delete clean.deletedAt;
+                    this.nodes[newKey] = clean;
+                    delete this.nodes[k];
+                }
+                this.saveToDB();
+                return { ok: true, restoredTo: restoreDest };
+            },
+
+            removePermanent: function(targetPath, recursive) {
+                const norm = this.resolvePath(targetPath);
+                if (norm === '/' || norm === '/home') {
+                    return { ok: false, error: 'rm: operación bloqueada sobre directorio raíz.' };
+                }
+                const node = this.nodes[norm];
+                if (!node) return { ok: false, error: 'rm: no se puede borrar «' + targetPath + '»: No existe el archivo o el directorio' };
+
+                if (node.type === 'dir' && !recursive) {
+                    return { ok: false, error: 'rm: no se puede borrar «' + targetPath + '»: Es un directorio (usa -r)' };
+                }
+
+                const prefix = norm + '/';
+                const keys = Object.keys(this.nodes);
+                for (let i = 0; i < keys.length; i++) {
+                    const k = keys[i];
+                    if (k === norm || k.indexOf(prefix) === 0) {
+                        delete this.nodes[k];
+                    }
+                }
+                this.saveToDB();
+                return { ok: true };
+            },
+
+            rmdir: function(targetPath) {
+                const norm = this.resolvePath(targetPath);
+                const node = this.nodes[norm];
+                if (!node) return { ok: false, error: 'rmdir: fallo al borrar «' + targetPath + '»: No existe el archivo o el directorio' };
+                if (node.type !== 'dir') return { ok: false, error: 'rmdir: fallo al borrar «' + targetPath + '»: No es un directorio' };
+                const children = this.listDir(norm, true);
+                if (children && children.length > 0) {
+                    return { ok: false, error: 'rmdir: fallo al borrar «' + targetPath + '»: El directorio no está vacío' };
+                }
+                delete this.nodes[norm];
+                this.saveToDB();
+                return { ok: true };
+            },
+
+            emptyTrash: function() {
+                const keys = Object.keys(this.nodes);
+                for (let i = 0; i < keys.length; i++) {
+                    if (keys[i].indexOf('/.trash/') === 0) {
+                        delete this.nodes[keys[i]];
+                    }
+                }
+                this.saveToDB();
+            },
+
+            renameUserHome: function(oldUser, newUser) {
+                if (oldUser === newUser) return;
+                const oldHome = '/home/' + oldUser;
+                const newHome = '/home/' + newUser;
+                if (this.nodes[oldHome]) {
+                    this.move(oldHome, newHome);
+                }
+            },
+
+            downloadToHost: function(vfsPath) {
+                const node = this.getNode(vfsPath);
+                if (!node || node.type !== 'file') {
+                    DesktopUI.toast('Selecciona un archivo válido para descargar.', 'warning');
+                    return;
+                }
+                const blob = new Blob([node.content || ''], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = node.name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                DesktopUI.toast('Archivo «' + node.name + '» descargado a tu PC.');
+            },
+
+            exportFullSystemJSON: function() {
+                const payload = {
+                    exportedAt: new Date().toISOString(),
+                    config: SystemConfig.data,
+                    nodes: this.nodes
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'ubuntu-gnome-backup-' + Date.now() + '.json';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                DesktopUI.toast('Copia de seguridad JSON exportada.');
+            }
+        };
+
+        const OSModal = {
+            close: function() {
+                document.getElementById('os-modal-backdrop').classList.add('hidden');
+            },
+            show: function(opts) {
+                const self = this;
+                const title = opts.title || 'Sistema';
+                const message = opts.message || '';
+                const showInput = Boolean(opts.showInput);
+                const defaultValue = opts.defaultValue || '';
+                const buttons = opts.buttons || [];
+
+                document.getElementById('os-modal-title').textContent = title;
+                document.getElementById('os-modal-message').textContent = message;
+                const inputWrap = document.getElementById('os-modal-input-wrap');
+                const inputEl = document.getElementById('os-modal-input');
+                if (showInput) {
+                    inputWrap.classList.remove('hidden');
+                    inputEl.value = defaultValue;
+                    setTimeout(function() { inputEl.focus(); }, 50);
+                } else {
+                    inputWrap.classList.add('hidden');
+                }
+
+                const btnWrap = document.getElementById('os-modal-buttons');
+                btnWrap.innerHTML = '';
+                buttons.forEach(function(btn) {
+                    const b = document.createElement('button');
+                    b.textContent = btn.label;
+                    b.className = btn.primary
+                        ? 'px-4 py-1.5 rounded-lg bg-ubuntu-orange hover:bg-orange-600 text-white font-semibold text-xs transition'
+                        : (btn.danger
+                            ? 'px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition'
+                            : 'px-4 py-1.5 rounded-lg bg-gray-200 dark:bg-white/10 hover:opacity-80 text-xs font-medium transition');
+                    b.onclick = function() {
+                        const val = inputEl.value;
+                        self.close();
+                        if (btn.onClick) btn.onClick(val);
+                    };
+                    btnWrap.appendChild(b);
+                });
+
+                document.getElementById('os-modal-backdrop').classList.remove('hidden');
+            },
+            prompt: function(title, message, defaultValue, callback) {
+                this.show({
+                    title: title,
+                    message: message,
+                    showInput: true,
+                    defaultValue: defaultValue,
+                    buttons: [
+                        { label: 'Cancelar' },
+                        { label: 'Aceptar', primary: true, onClick: function(val) { if (val && val.trim()) callback(val.trim()); } }
+                    ]
+                });
+            },
+            confirm: function(title, message, onConfirm, danger) {
+                this.show({
+                    title: title,
+                    message: message,
+                    buttons: [
+                        { label: 'Cancelar' },
+                        { label: 'Confirmar', primary: !danger, danger: Boolean(danger), onClick: onConfirm }
+                    ]
+                });
+            }
+        };
+
+        const DesktopUI = {
+            init: function() {
+                const self = this;
+                this.bindStaticEvents();
+                this.updateClock();
+                setInterval(function() { self.updateClock(); }, 1000);
+                this.renderDock();
+                this.renderDesktopIcons();
+                this.renderActivitiesGrid();
+
+                window.addEventListener('vfs-change', function() {
+                    self.renderDesktopIcons();
+                });
+                window.addEventListener('sysconfig-change', function() {
+                    self.updateClock();
+                    self.renderDesktopIcons();
+                });
+            },
+
+            bindStaticEvents: function() {
+                const self = this;
+                document.getElementById('btn-activities').onclick = function() { self.toggleActivities(); };
+                document.getElementById('btn-clock').onclick = function() { self.togglePopup('calendar-popup'); };
+                document.getElementById('btn-clear-notifs').onclick = function() { self.clearNotifications(); };
+                document.getElementById('btn-sysmenu').onclick = function() { self.togglePopup('system-popup'); };
+                document.getElementById('btn-mute').onclick = function() { self.toggleMute(); };
+                document.getElementById('slider-volume').oninput = function(e) { self.setVolume(e.target.value); };
+                document.getElementById('slider-brightness').oninput = function(e) { self.setBrightness(e.target.value); };
+                document.getElementById('qs-wifi-btn').onclick = function() { SystemConfig.toggleWifiQuick(); };
+                document.getElementById('qs-eth-btn').onclick = function() { SystemConfig.toggleEthQuick(); };
+                document.getElementById('qs-theme-btn').onclick = function() { SystemConfig.toggleTheme(); };
+                document.getElementById('qs-settings-btn').onclick = function() {
+                    WM.openApp('settings');
+                    self.closePopups();
+                };
+                document.getElementById('qs-wizard-btn').onclick = function() {
+                    Wizard.open();
+                    self.closePopups();
+                };
+                document.getElementById('qs-restart-btn').onclick = function() { self.restartSession(); };
+
+                document.getElementById('dock-btn-trash').onclick = function() { WM.openApp('trash'); };
+                document.getElementById('dock-btn-apps').onclick = function() { self.toggleActivities(); };
+
+                const desktopArea = document.getElementById('desktop-area');
+                desktopArea.onclick = function(e) { self.onDesktopClick(e); };
+                desktopArea.oncontextmenu = function(e) { self.onDesktopContextMenu(e); };
+
+                const actOverlay = document.getElementById('activities-overlay');
+                actOverlay.onclick = function(e) {
+                    if (e.target === actOverlay) self.toggleActivities();
+                };
+                document.getElementById('activities-search').oninput = function(e) { self.filterActivities(e.target.value); };
+                document.getElementById('os-modal-close').onclick = function() { OSModal.close(); };
+
+                const fileInput = document.getElementById('host-file-input');
+                fileInput.addEventListener('change', function(e) {
+                    const targetDir = fileInput.dataset.targetDir || (VFS.getHomeDir() + '/Escritorio');
+                    const files = Array.from(e.target.files || []);
+                    files.forEach(function(file) {
+                        const reader = new FileReader();
+                        reader.onload = function(ev) {
+                            VFS.writeFile(targetDir + '/' + file.name, ev.target.result || '');
+                            self.toast('Importado «' + file.name + '» en ' + targetDir);
+                        };
+                        reader.readAsText(file);
+                    });
+                    fileInput.value = '';
+                });
+
+                const jsonInput = document.getElementById('json-restore-input');
+                jsonInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        try {
+                            const parsed = JSON.parse(ev.target.result);
+                            if (parsed.nodes && parsed.config) {
+                                SystemConfig.data = parsed.config;
+                                SystemConfig.save();
+                                VFS.nodes = parsed.nodes;
+                                VFS.saveToDB();
+                                self.toast('Copia de seguridad restaurada con éxito.');
+                            }
+                        } catch (err) {
+                            self.toast('Archivo JSON inválido.', 'warning');
+                        }
+                    };
+                    reader.readAsText(file);
+                    jsonInput.value = '';
+                });
+            },
+
+            triggerHostFileImport: function(targetDir) {
+                const input = document.getElementById('host-file-input');
+                input.dataset.targetDir = targetDir;
+                input.click();
+            },
+
+            updateClock: function() {
+                const now = new Date();
+                const tz = SystemConfig.data.timezone || 'America/Lima';
+                const hour12 = !SystemConfig.data.use24h;
+                try {
+                    const fmt = new Intl.DateTimeFormat(SystemConfig.data.language === 'en' ? 'en-US' : 'es-ES', {
+                        timeZone: tz,
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: hour12
+                    });
+                    document.getElementById('clock-display').textContent = fmt.format(now);
+
+                    const dayFmt = new Intl.DateTimeFormat('es-ES', { timeZone: tz, weekday: 'long' });
+                    const fullDateFmt = new Intl.DateTimeFormat('es-ES', { timeZone: tz, day: 'numeric', month: 'long', year: 'numeric' });
+                    document.getElementById('cal-day-name').textContent = dayFmt.format(now);
+                    document.getElementById('cal-full-date').textContent = fullDateFmt.format(now);
+                } catch (e) {
+                    document.getElementById('clock-display').textContent = now.toLocaleTimeString();
+                }
+            },
+
+            togglePopup: function(id) {
+                ['calendar-popup', 'system-popup'].forEach(function(p) {
+                    const el = document.getElementById(p);
+                    if (p === id) el.classList.toggle('hidden');
+                    else el.classList.add('hidden');
+                });
+                document.getElementById('context-menu').classList.add('hidden');
+            },
+
+            closePopups: function() {
+                document.getElementById('calendar-popup').classList.add('hidden');
+                document.getElementById('system-popup').classList.add('hidden');
+                document.getElementById('context-menu').classList.add('hidden');
+            },
+
+            toggleActivities: function() {
+                const self = this;
+                this.closePopups();
+                const ov = document.getElementById('activities-overlay');
+                ov.classList.toggle('hidden');
+                if (!ov.classList.contains('hidden')) {
+                    const s = document.getElementById('activities-search');
+                    s.value = '';
+                    this.filterActivities('');
+                    setTimeout(function() { s.focus(); }, 50);
+                }
+            },
+
+            setVolume: function(val) {
+                SystemConfig.data.volume = Number(val);
+                SystemConfig.data.muted = Number(val) === 0;
+                document.getElementById('val-volume').textContent = val + '%';
+                this.updateVolumeIcon();
+            },
+
+            toggleMute: function() {
+                SystemConfig.data.muted = !SystemConfig.data.muted;
+                const slider = document.getElementById('slider-volume');
+                if (SystemConfig.data.muted) {
+                    slider.value = 0;
+                    document.getElementById('val-volume').textContent = '0%';
+                } else {
+                    slider.value = SystemConfig.data.volume || 80;
+                    document.getElementById('val-volume').textContent = slider.value + '%';
+                }
+                this.updateVolumeIcon();
+            },
+
+            updateVolumeIcon: function() {
+                const v = SystemConfig.data.muted ? 0 : SystemConfig.data.volume;
+                const cls = v === 0 ? 'fa-solid fa-volume-xmark text-red-400' : (v < 50 ? 'fa-solid fa-volume-low' : 'fa-solid fa-volume-high');
+                document.getElementById('ind-sound').className = cls + ' text-xs';
+                document.getElementById('popup-vol-icon').className = cls;
+            },
+
+            setBrightness: function(val) {
+                SystemConfig.data.brightness = Number(val);
+                document.getElementById('val-brightness').textContent = val + '%';
+                document.getElementById('desktop-area').style.filter = 'brightness(' + val + '%)';
+            },
+
+            toast: function(text, type) {
+                const container = document.getElementById('toast-container');
+                const item = document.createElement('div');
+                const icon = type === 'warning' ? 'fa-triangle-exclamation text-amber-400' : 'fa-circle-check text-ubuntu-orange';
+                item.className = 'bg-ubuntu-darkPanel text-white px-4 py-2.5 rounded-xl shadow-2xl border border-white/15 flex items-center gap-2.5 text-xs animate-bounce';
+                item.innerHTML = '<i class="fa-solid ' + icon + '"></i><span>' + text + '</span>';
+                container.appendChild(item);
+
+                const notifList = document.getElementById('notification-list');
+                if (notifList) {
+                    const n = document.createElement('div');
+                    n.className = 'bg-white/5 p-2 rounded-xl flex items-start gap-2 text-[11px]';
+                    n.innerHTML = '<i class="fa-solid ' + icon + ' mt-0.5"></i><div>' + text + '</div>';
+                    notifList.prepend(n);
+                }
+
+                setTimeout(function() { item.remove(); }, 3200);
+            },
+
+            clearNotifications: function() {
+                document.getElementById('notification-list').innerHTML = '<div class="text-center text-gray-500 py-4 text-xs">No hay notificaciones nuevas</div>';
+            },
+
+            restartSession: function() {
+                const self = this;
+                OSModal.confirm('Reiniciar Sesión de Escritorio', '¿Deseas cerrar todas las ventanas abiertas y recargar la sesión gráfica (tus archivos guardados en IndexedDB se conservarán)?', function() {
+                    WM.closeAll();
+                    self.toast('Sesión de GNOME reiniciada.');
+                });
+            },
+
+            getAppsCatalog: function() {
+                return [
+                    { id: 'files', title: 'Archivos', icon: 'fa-solid fa-folder-open', color: 'from-orange-500 to-amber-600' },
+                    { id: 'terminal', title: 'Terminal Bash', icon: 'fa-solid fa-terminal', color: 'from-zinc-700 to-zinc-900' },
+                    { id: 'editor', title: 'Editor de Texto', icon: 'fa-solid fa-file-pen', color: 'from-sky-500 to-blue-700' },
+                    { id: 'browser', title: 'Navegador Web', icon: 'fa-solid fa-globe', color: 'from-indigo-500 to-purple-700' },
+                    { id: 'settings', title: 'Configuración', icon: 'fa-solid fa-sliders', color: 'from-slate-500 to-slate-700' },
+                    { id: 'trash', title: 'Papelera', icon: 'fa-solid fa-trash-can', color: 'from-emerald-600 to-teal-800' },
+                    { id: 'wizard', title: 'Asistente Inicial', icon: 'fa-solid fa-wand-magic-sparkles', color: 'from-pink-600 to-rose-700' }
+                ];
+            },
+
+            renderDock: function() {
+                const container = document.getElementById('dock-Pinned');
+                const apps = this.getAppsCatalog().filter(function(a) { return a.id !== 'trash' && a.id !== 'wizard'; });
+                container.innerHTML = apps.map(function(app) {
+                    return '<button data-dock-app="' + app.id + '" id="dock-btn-' + app.id + '" class="relative group p-2 rounded-xl hover:bg-white/15 transition flex items-center justify-center">' +
+                        '<span id="dock-dot-' + app.id + '" class="hidden absolute left-0.5 w-1.5 h-1.5 rounded-full bg-ubuntu-orange"></span>' +
+                        '<div class="w-10 h-10 rounded-xl bg-gradient-to-br ' + app.color + ' flex items-center justify-center shadow-md group-hover:scale-105 transition">' +
+                            '<i class="' + app.icon + ' text-white text-lg"></i>' +
+                        '</div>' +
+                        '<span class="pointer-events-none opacity-0 group-hover:opacity-100 transition bg-gray-900 text-white text-xs px-2.5 py-1 rounded-md absolute left-16 whitespace-nowrap shadow-lg border border-white/10 z-50">' + app.title + '</span>' +
+                    '</button>';
+                }).join('');
+
+                container.querySelectorAll('[data-dock-app]').forEach(function(btn) {
+                    btn.onclick = function() { WM.onDockClick(btn.dataset.dockApp); };
+                });
+            },
+
+            renderActivitiesGrid: function(filter) {
+                const self = this;
+                const grid = document.getElementById('activities-app-grid');
+                const q = (filter || '').toLowerCase();
+                const apps = this.getAppsCatalog().filter(function(a) { return a.title.toLowerCase().indexOf(q) !== -1; });
+                grid.innerHTML = apps.map(function(app) {
+                    return '<button data-act-app="' + app.id + '" class="flex flex-col items-center p-4 rounded-2xl hover:bg-white/10 transition group">' +
+                        '<div class="w-16 h-16 rounded-2xl bg-gradient-to-br ' + app.color + ' flex items-center justify-center shadow-xl mb-2.5 group-hover:scale-110 transition">' +
+                            '<i class="' + app.icon + ' text-white text-2xl"></i>' +
+                        '</div>' +
+                        '<span class="text-white text-xs font-medium">' + app.title + '</span>' +
+                    '</button>';
+                }).join('');
+
+                grid.querySelectorAll('[data-act-app]').forEach(function(btn) {
+                    btn.onclick = function() { self.launchFromActivities(btn.dataset.actApp); };
+                });
+            },
+
+            filterActivities: function(val) {
+                this.renderActivitiesGrid(val);
+            },
+
+            launchFromActivities: function(appId) {
+                this.toggleActivities();
+                if (appId === 'wizard') Wizard.open();
+                else WM.openApp(appId);
+            },
+
+            renderDesktopIcons: function() {
+                const self = this;
+                if (!VFS.ready) return;
+                const container = document.getElementById('desktop-icons');
+                const desktopPath = VFS.getHomeDir() + '/Escritorio';
+                if (!VFS.exists(desktopPath)) VFS.mkdir(desktopPath, true);
+                const items = VFS.listDir(desktopPath) || [];
+
+                container.innerHTML = '';
+
+                const homeEl = document.createElement('div');
+                homeEl.className = 'w-24 h-24 rounded-xl hover:bg-white/15 flex flex-col items-center justify-center p-2 cursor-pointer text-white text-center group';
+                homeEl.innerHTML = '<i class="fa-solid fa-house-user text-3xl text-ubuntu-orange drop-shadow mb-1.5 group-hover:scale-105 transition"></i><span class="text-[11px] leading-tight line-clamp-2 drop-shadow font-medium">Carpeta personal</span>';
+                homeEl.ondblclick = function() { WM.openApp('files', { path: VFS.getHomeDir() }); };
+                container.appendChild(homeEl);
+
+                const wizEl = document.createElement('div');
+                wizEl.className = 'w-24 h-24 rounded-xl hover:bg-white/15 flex flex-col items-center justify-center p-2 cursor-pointer text-white text-center group';
+                wizEl.innerHTML = '<i class="fa-brands fa-ubuntu text-3xl text-orange-400 drop-shadow mb-1.5 group-hover:scale-105 transition"></i><span class="text-[11px] leading-tight line-clamp-2 drop-shadow font-medium">Asistente inicial</span>';
+                wizEl.ondblclick = function() { Wizard.open(); };
+                container.appendChild(wizEl);
+
+                items.forEach(function(item) {
+                    const isDir = item.type === 'dir';
+                    const isSh = item.name.slice(-3) === '.sh';
+                    const icon = isDir ? 'fa-solid fa-folder text-amber-400' : (isSh ? 'fa-solid fa-file-code text-emerald-400' : 'fa-solid fa-file-lines text-sky-200');
+                    const el = document.createElement('div');
+                    el.className = 'w-24 h-24 rounded-xl hover:bg-white/15 flex flex-col items-center justify-center p-2 cursor-pointer text-white text-center group';
+                    el.innerHTML = '<i class="' + icon + ' text-3xl drop-shadow mb-1.5 group-hover:scale-105 transition"></i><span class="text-[11px] leading-tight line-clamp-2 drop-shadow font-medium break-all"></span>';
+                    el.querySelector('span').textContent = item.name;
+                    el.ondblclick = function() { self.openVFSItem(item.path); };
+                    el.oncontextmenu = function(e) { self.onItemContextMenu(e, item.path); };
+                    container.appendChild(el);
+                });
+            },
+
+            openVFSItem: function(path) {
+                const node = VFS.getNode(path);
+                if (!node) return;
+                if (node.type === 'dir') {
+                    WM.openApp('files', { path: path });
+                } else {
+                    WM.openApp('editor', { filePath: path });
+                }
+            },
+
+            onDesktopClick: function(e) {
+                if (e.target.id === 'desktop-area' || e.target.id === 'desktop-icons') {
+                    this.closePopups();
+                }
+            },
+
+            showContextMenu: function(x, y, items) {
+                const menu = document.getElementById('context-menu');
+                menu.innerHTML = '';
+                items.forEach(function(it) {
+                    if (it.divider) {
+                        const div = document.createElement('div');
+                        div.className = 'my-1 border-t border-gray-200 dark:border-white/10';
+                        menu.appendChild(div);
+                    } else {
+                        const btn = document.createElement('button');
+                        btn.className = 'w-full px-3.5 py-1.5 text-left hover:bg-ubuntu-orange hover:text-white flex items-center gap-2.5 transition';
+                        btn.innerHTML = '<i class="' + it.icon + ' w-4 text-center"></i><span>' + it.label + '</span>';
+                        btn.onclick = function() {
+                            menu.classList.add('hidden');
+                            if (it.action) it.action();
+                        };
+                        menu.appendChild(btn);
+                    }
+                });
+
+                menu.classList.remove('hidden');
+                const maxX = window.innerWidth - 230;
+                const maxY = window.innerHeight - 240;
+                menu.style.left = Math.min(x, maxX) + 'px';
+                menu.style.top = Math.min(y, maxY) + 'px';
+            },
+
+            onDesktopContextMenu: function(e) {
+                const self = this;
+                e.preventDefault();
+                if (e.target.closest('.os-window')) return;
+                const deskPath = VFS.getHomeDir() + '/Escritorio';
+                this.showContextMenu(e.clientX, e.clientY, [
+                    { label: 'Nueva carpeta en Escritorio...', icon: 'fa-solid fa-folder-plus', action: function() {
+                        OSModal.prompt('Nueva carpeta', 'Nombre de la carpeta:', 'Nueva carpeta', function(name) {
+                            VFS.mkdir(deskPath + '/' + name);
+                        });
+                    }},
+                    { label: 'Nuevo archivo de texto...', icon: 'fa-solid fa-file-circle-plus', action: function() {
+                        OSModal.prompt('Nuevo archivo', 'Nombre del archivo:', 'documento.txt', function(name) {
+                            VFS.writeFile(deskPath + '/' + name, '');
+                        });
+                    }},
+                    { divider: true },
+                    { label: 'Importar archivo desde tu PC...', icon: 'fa-solid fa-file-import', action: function() {
+                        self.triggerHostFileImport(deskPath);
+                    }},
+                    { label: 'Abrir en la Terminal', icon: 'fa-solid fa-terminal', action: function() {
+                        WM.openApp('terminal', { cwd: deskPath });
+                    }},
+                    { divider: true },
+                    { label: 'Cambiar fondo de pantalla', icon: 'fa-solid fa-image', action: function() {
+                        WM.openApp('settings', { tab: 'appearance' });
+                    }}
+                ]);
+            },
+
+            onItemContextMenu: function(e, path) {
+                const self = this;
+                e.preventDefault();
+                e.stopPropagation();
+                const node = VFS.getNode(path);
+                if (!node) return;
+                this.showContextMenu(e.clientX, e.clientY, [
+                    { label: 'Abrir', icon: 'fa-solid fa-folder-open', action: function() { self.openVFSItem(path); } },
+                    { label: 'Renombrar...', icon: 'fa-solid fa-pen', action: function() {
+                        OSModal.prompt('Renombrar', 'Nuevo nombre para «' + node.name + '»:', node.name, function(newName) {
+                            const parent = VFS.getParentPath(path);
+                            VFS.move(path, parent + '/' + newName);
+                        });
+                    }},
+                    { label: 'Descargar a mi PC', icon: 'fa-solid fa-download', action: function() { VFS.downloadToHost(path); } },
+                    { divider: true },
+                    { label: 'Mover a la Papelera', icon: 'fa-solid fa-trash-can text-red-400', action: function() {
+                        VFS.moveToTrash(path);
+                        self.toast('«' + node.name + '» enviado a la Papelera.');
+                    }}
+                ]);
+            }
+        };
+
+        const WM = {
+            windows: {},
+            zIndexCounter: 100,
+            activeAppId: null,
+
+            openApp: function(appId, params) {
+                const self = this;
+                const appParams = params || {};
+                DesktopUI.closePopups();
+
+                if (this.windows[appId]) {
+                    const win = this.windows[appId];
+                    win.minimized = false;
+                    win.el.classList.remove('minimized');
+                    this.focusWindow(appId);
+                    if (win.instance && win.instance.onParams) {
+                        win.instance.onParams(appParams);
+                    }
+                    return;
+                }
+
+                const appDefs = {
+                    files: { title: 'Archivos (Nautilus)', icon: 'fa-solid fa-folder-open', w: 780, h: 490, create: function() { return new FilesApp(appParams); } },
+                    terminal: { title: 'Terminal Bash', icon: 'fa-solid fa-terminal', w: 720, h: 450, create: function() { return new TerminalApp(appParams); } },
+                    editor: { title: 'Editor de Texto', icon: 'fa-solid fa-file-pen', w: 700, h: 480, create: function() { return new EditorApp(appParams); } },
+                    browser: { title: 'Navegador Web GNOME', icon: 'fa-solid fa-globe', w: 840, h: 520, create: function() { return new BrowserApp(appParams); } },
+                    settings: { title: 'Configuración', icon: 'fa-solid fa-sliders', w: 760, h: 490, create: function() { return new SettingsApp(appParams); } },
+                    trash: { title: 'Papelera', icon: 'fa-solid fa-trash-can', w: 680, h: 440, create: function() { return new TrashApp(appParams); } }
+                };
+
+                const def = appDefs[appId];
+                if (!def) return;
+
+                const container = document.getElementById('windows-container');
+                const winEl = document.createElement('div');
+                const offset = (Object.keys(this.windows).length * 26) % 140;
+                const availW = container.clientWidth || (window.innerWidth - 64);
+                const availH = container.clientHeight || (window.innerHeight - 28);
+                const width = Math.min(def.w, availW - 20);
+                const height = Math.min(def.h, availH - 20);
+                const left = Math.max(10, Math.min(40 + offset, availW - width - 10));
+                const top = Math.max(10, Math.min(24 + offset, availH - height - 10));
+
+                winEl.id = 'win-' + appId;
+                winEl.style.width = width + 'px';
+                winEl.style.height = height + 'px';
+                winEl.style.left = left + 'px';
+                winEl.style.top = top + 'px';
+                winEl.style.zIndex = ++this.zIndexCounter;
+                winEl.className = 'os-window pointer-events-auto absolute rounded-xl overflow-hidden flex flex-col bg-ubuntu-lightPanel dark:bg-ubuntu-darkPanel text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-white/10';
+
+                winEl.innerHTML =
+                    '<div class="win-titlebar h-10 bg-ubuntu-lightHeader dark:bg-ubuntu-darkHeader border-b border-gray-300 dark:border-white/10 px-3 flex items-center justify-between cursor-move select-none shrink-0">' +
+                        '<div class="flex items-center gap-2 overflow-hidden">' +
+                            '<i class="' + def.icon + ' text-ubuntu-orange text-xs"></i>' +
+                            '<span id="win-title-' + appId + '" class="font-semibold text-xs truncate">' + def.title + '</span>' +
+                        '</div>' +
+                        '<div class="flex items-center gap-1.5">' +
+                            '<button class="btn-win-min w-6 h-6 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/15 dark:hover:bg-white/20 flex items-center justify-center transition" title="Minimizar">' +
+                                '<i class="fa-solid fa-minus text-[10px]"></i>' +
+                            '</button>' +
+                            '<button class="btn-win-max w-6 h-6 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/15 dark:hover:bg-white/20 flex items-center justify-center transition" title="Maximizar">' +
+                                '<i class="fa-regular fa-square text-[10px]"></i>' +
+                            '</button>' +
+                            '<button class="btn-win-close w-6 h-6 rounded-full bg-ubuntu-orange hover:bg-red-600 text-white flex items-center justify-center transition" title="Cerrar">' +
+                                '<i class="fa-solid fa-xmark text-xs"></i>' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div id="win-body-' + appId + '" class="flex-1 flex flex-col overflow-hidden relative"></div>' +
+                    '<div class="resize-handle-r"></div>' +
+                    '<div class="resize-handle-b"></div>' +
+                    '<div class="resize-handle-br"></div>';
+
+                winEl.querySelector('.win-titlebar').ondblclick = function() { self.toggleMaximize(appId); };
+                winEl.querySelector('.btn-win-min').onclick = function() { self.minimizeWindow(appId); };
+                winEl.querySelector('.btn-win-max').onclick = function() { self.toggleMaximize(appId); };
+                winEl.querySelector('.btn-win-close').onclick = function() { self.requestClose(appId); };
+
+                winEl.addEventListener('mousedown', function() { self.focusWindow(appId); });
+                container.appendChild(winEl);
+
+                const instance = def.create();
+                this.windows[appId] = {
+                    id: appId,
+                    title: def.title,
+                    el: winEl,
+                    instance: instance,
+                    minimized: false,
+                    maximized: false,
+                    prevRect: null
+                };
+
+                instance.mount(document.getElementById('win-body-' + appId));
+                this.setupWindowInteractions(appId, winEl);
+                this.updateDockIndicators();
+                this.focusWindow(appId);
+            },
+
+            setWindowTitle: function(appId, newTitle) {
+                const tEl = document.getElementById('win-title-' + appId);
+                if (tEl) tEl.textContent = newTitle;
+            },
+
+            focusWindow: function(appId) {
+                const win = this.windows[appId];
+                if (!win) return;
+                win.el.style.zIndex = ++this.zIndexCounter;
+                Object.values(this.windows).forEach(function(w) { w.el.classList.remove('active-window'); });
+                win.el.classList.add('active-window');
+                this.activeAppId = appId;
+                document.getElementById('topbar-active-app').textContent = win.title;
+            },
+
+            minimizeWindow: function(appId) {
+                const win = this.windows[appId];
+                if (!win) return;
+                win.minimized = true;
+                win.el.classList.add('minimized');
+            },
+
+            toggleMaximize: function(appId) {
+                const win = this.windows[appId];
+                if (!win) return;
+                const el = win.el;
+                if (!win.maximized) {
+                    win.prevRect = {
+                        left: el.style.left,
+                        top: el.style.top,
+                        width: el.style.width,
+                        height: el.style.height
+                    };
+                    el.style.left = '0px';
+                    el.style.top = '0px';
+                    el.style.width = '100%';
+                    el.style.height = '100%';
+                    el.classList.remove('rounded-xl');
+                    win.maximized = true;
+                } else {
+                    if (win.prevRect) {
+                        el.style.left = win.prevRect.left;
+                        el.style.top = win.prevRect.top;
+                        el.style.width = win.prevRect.width;
+                        el.style.height = win.prevRect.height;
+                    }
+                    el.classList.add('rounded-xl');
+                    win.maximized = false;
+                }
+                this.focusWindow(appId);
+            },
+
+            requestClose: function(appId) {
+                const self = this;
+                const win = this.windows[appId];
+                if (!win) return;
+                if (win.instance && typeof win.instance.canClose === 'function') {
+                    win.instance.canClose(function() { self.forceClose(appId); });
+                } else {
+                    this.forceClose(appId);
+                }
+            },
+
+            forceClose: function(appId) {
+                const win = this.windows[appId];
+                if (!win) return;
+                if (win.instance && win.instance.destroy) win.instance.destroy();
+                win.el.remove();
+                delete this.windows[appId];
+                this.updateDockIndicators();
+                document.getElementById('topbar-active-app').textContent = 'Ubuntu Desktop';
+            },
+
+            closeAll: function() {
+                const self = this;
+                Object.keys(this.windows).forEach(function(id) { self.forceClose(id); });
+            },
+
+            onDockClick: function(appId) {
+                const win = this.windows[appId];
+                if (!win) {
+                    this.openApp(appId);
+                } else if (win.minimized) {
+                    win.minimized = false;
+                    win.el.classList.remove('minimized');
+                    this.focusWindow(appId);
+                } else if (this.activeAppId === appId) {
+                    this.minimizeWindow(appId);
+                } else {
+                    this.focusWindow(appId);
+                }
+            },
+
+            updateDockIndicators: function() {
+                const self = this;
+                ['files', 'terminal', 'editor', 'browser', 'settings', 'trash'].forEach(function(id) {
+                    const dot = document.getElementById('dock-dot-' + id);
+                    if (dot) {
+                        if (self.windows[id]) dot.classList.remove('hidden');
+                        else dot.classList.add('hidden');
+                    }
+                });
+            },
+
+            setupWindowInteractions: function(appId, winEl) {
+                const self = this;
+                const titlebar = winEl.querySelector('.win-titlebar');
+                let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+                titlebar.addEventListener('mousedown', function(e) {
+                    if (e.target.closest('button')) return;
+                    const win = self.windows[appId];
+                    if (win && win.maximized) return;
+                    dragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    origLeft = parseInt(winEl.style.left, 10) || 0;
+                    origTop = parseInt(winEl.style.top, 10) || 0;
+                });
+
+                let resizing = null, startW = 0, startH = 0;
+                const initResize = function(mode, e) {
+                    e.stopPropagation();
+                    const win = self.windows[appId];
+                    if (win && win.maximized) return;
+                    resizing = mode;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    startW = winEl.offsetWidth;
+                    startH = winEl.offsetHeight;
+                };
+
+                winEl.querySelector('.resize-handle-r').addEventListener('mousedown', function(e) { initResize('r', e); });
+                winEl.querySelector('.resize-handle-b').addEventListener('mousedown', function(e) { initResize('b', e); });
+                winEl.querySelector('.resize-handle-br').addEventListener('mousedown', function(e) { initResize('br', e); });
+
+                window.addEventListener('mousemove', function(e) {
+                    if (dragging) {
+                        const dx = e.clientX - startX;
+                        const dy = e.clientY - startY;
+                        winEl.style.left = Math.max(0, origLeft + dx) + 'px';
+                        winEl.style.top = Math.max(0, origTop + dy) + 'px';
+                    } else if (resizing) {
+                        const dx = e.clientX - startX;
+                        const dy = e.clientY - startY;
+                        if (resizing === 'r' || resizing === 'br') {
+                            winEl.style.width = Math.max(360, startW + dx) + 'px';
+                        }
+                        if (resizing === 'b' || resizing === 'br') {
+                            winEl.style.height = Math.max(260, startH + dy) + 'px';
+                        }
+                    }
+                });
+
+                window.addEventListener('mouseup', function() {
+                    dragging = false;
+                    resizing = null;
+                });
+            }
+        };
+
+        function FilesApp(params) {
+            const p = params || {};
+            this.cwd = p.path || VFS.getHomeDir();
+            this.history = [this.cwd];
+            this.historyIdx = 0;
+            this.viewMode = 'grid';
+            this.selectedPath = null;
+            const self = this;
+            this.onVfsChange = function() { self.renderContent(); };
+        }
+
+        FilesApp.prototype.onParams = function(params) {
+            if (params && params.path) this.navigateTo(params.path);
+        };
+
+        FilesApp.prototype.mount = function(container) {
+            const self = this;
+            this.container = container;
+            window.addEventListener('vfs-change', this.onVfsChange);
+
+            this.container.innerHTML =
+                '<div class="h-11 px-3 bg-gray-100 dark:bg-[#262626] border-b border-gray-300 dark:border-white/10 flex items-center justify-between gap-2 shrink-0">' +
+                    '<div class="flex items-center gap-1">' +
+                        '<button id="files-back" class="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10"><i class="fa-solid fa-chevron-left text-xs"></i></button>' +
+                        '<button id="files-fwd" class="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10"><i class="fa-solid fa-chevron-right text-xs"></i></button>' +
+                        '<button id="files-up" title="Subir nivel" class="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10"><i class="fa-solid fa-arrow-up text-xs"></i></button>' +
+                    '</div>' +
+                    '<div id="files-breadcrumbs" class="flex-1 px-3 py-1 rounded-lg bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10 text-xs font-mono truncate flex items-center gap-1 overflow-x-auto"></div>' +
+                    '<div class="flex items-center gap-1">' +
+                        '<button id="files-new-folder" title="Nueva carpeta" class="px-2 py-1 rounded-lg bg-white dark:bg-white/10 hover:bg-ubuntu-orange hover:text-white transition text-xs"><i class="fa-solid fa-folder-plus"></i></button>' +
+                        '<button id="files-new-file" title="Nuevo archivo" class="px-2 py-1 rounded-lg bg-white dark:bg-white/10 hover:bg-ubuntu-orange hover:text-white transition text-xs"><i class="fa-solid fa-file-circle-plus"></i></button>' +
+                        '<button id="files-paste" title="Pegar elemento" class="px-2 py-1 rounded-lg bg-white dark:bg-white/10 hover:bg-ubuntu-orange hover:text-white transition text-xs"><i class="fa-solid fa-paste"></i></button>' +
+                        '<button id="files-import" title="Importar archivo desde tu PC" class="px-2 py-1 rounded-lg bg-ubuntu-orange text-white hover:bg-orange-600 transition text-xs flex items-center gap-1"><i class="fa-solid fa-file-import"></i><span class="hidden md:inline">Importar</span></button>' +
+                        '<button id="files-toggle-view" title="Cambiar vista Iconos/Lista" class="px-2 py-1 rounded-lg bg-white dark:bg-white/10 hover:bg-black/10 text-xs"><i class="fa-solid fa-list"></i></button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="flex-1 flex overflow-hidden">' +
+                    '<div id="files-sidebar" class="w-44 bg-gray-50 dark:bg-[#222222] border-r border-gray-300 dark:border-white/10 p-2 space-y-1 overflow-y-auto shrink-0 text-xs"></div>' +
+                    '<div class="flex-1 flex flex-col overflow-hidden">' +
+                        '<div id="files-selection-bar" class="hidden px-3 py-1.5 bg-ubuntu-orange/15 border-b border-ubuntu-orange/30 flex items-center justify-between text-xs">' +
+                            '<span id="files-sel-name" class="font-semibold truncate"></span>' +
+                            '<div class="flex items-center gap-1.5">' +
+                                '<button id="sel-open" class="px-2 py-0.5 rounded bg-ubuntu-orange text-white">Abrir</button>' +
+                                '<button id="sel-copy" class="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">Copiar</button>' +
+                                '<button id="sel-cut" class="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">Cortar</button>' +
+                                '<button id="sel-rename" class="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">Renombrar</button>' +
+                                '<button id="sel-download" class="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10" title="Descargar al PC"><i class="fa-solid fa-download"></i></button>' +
+                                '<button id="sel-delete" class="px-2 py-0.5 rounded bg-red-600 text-white"><i class="fa-solid fa-trash-can"></i></button>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div id="files-main-area" class="flex-1 p-3 overflow-y-auto"></div>' +
+                        '<div id="files-statusbar" class="h-6 px-3 bg-gray-100 dark:bg-[#222222] border-t border-gray-300 dark:border-white/10 flex items-center justify-between text-[11px] text-gray-500"></div>' +
+                    '</div>' +
+                '</div>';
+
+            this.container.querySelector('#files-back').onclick = function() {
+                if (self.historyIdx > 0) {
+                    self.historyIdx--;
+                    self.cwd = self.history[self.historyIdx];
+                    self.selectedPath = null;
+                    self.renderContent();
+                }
+            };
+            this.container.querySelector('#files-fwd').onclick = function() {
+                if (self.historyIdx < self.history.length - 1) {
+                    self.historyIdx++;
+                    self.cwd = self.history[self.historyIdx];
+                    self.selectedPath = null;
+                    self.renderContent();
+                }
+            };
+            this.container.querySelector('#files-up').onclick = function() {
+                self.navigateTo(VFS.getParentPath(self.cwd));
+            };
+            this.container.querySelector('#files-new-folder').onclick = function() {
+                OSModal.prompt('Crear Carpeta', 'Nombre de la nueva carpeta:', 'Nueva carpeta', function(name) {
+                    const res = VFS.mkdir(self.cwd + '/' + name);
+                    if (!res.ok) DesktopUI.toast(res.error, 'warning');
+                });
+            };
+            this.container.querySelector('#files-new-file').onclick = function() {
+                OSModal.prompt('Crear Archivo', 'Nombre del nuevo archivo:', 'nuevo.txt', function(name) {
+                    const res = VFS.writeFile(self.cwd + '/' + name, '');
+                    if (!res.ok) DesktopUI.toast(res.error, 'warning');
+                });
+            };
+            this.container.querySelector('#files-paste').onclick = function() { self.pasteClipboard(); };
+            this.container.querySelector('#files-import').onclick = function() { DesktopUI.triggerHostFileImport(self.cwd); };
+            this.container.querySelector('#files-toggle-view').onclick = function() {
+                self.viewMode = self.viewMode === 'grid' ? 'list' : 'grid';
+                self.renderContent();
+            };
+
+            this.container.querySelector('#sel-open').onclick = function() { self.openItem(self.selectedPath); };
+            this.container.querySelector('#sel-copy').onclick = function() {
+                VFS.clipboard = { mode: 'copy', path: self.selectedPath };
+                DesktopUI.toast('Copiado al portapapeles.');
+            };
+            this.container.querySelector('#sel-cut').onclick = function() {
+                VFS.clipboard = { mode: 'cut', path: self.selectedPath };
+                DesktopUI.toast('Cortado al portapapeles.');
+            };
+            this.container.querySelector('#sel-rename').onclick = function() {
+                const node = VFS.getNode(self.selectedPath);
+                if (!node) return;
+                OSModal.prompt('Renombrar', 'Nuevo nombre para «' + node.name + '»:', node.name, function(newName) {
+                    const parent = VFS.getParentPath(self.selectedPath);
+                    VFS.move(self.selectedPath, parent + '/' + newName);
+                    self.selectedPath = null;
+                });
+            };
+            this.container.querySelector('#sel-download').onclick = function() { VFS.downloadToHost(self.selectedPath); };
+            this.container.querySelector('#sel-delete').onclick = function() {
+                const node = VFS.getNode(self.selectedPath);
+                if (!node) return;
+                VFS.moveToTrash(self.selectedPath);
+                DesktopUI.toast('«' + node.name + '» movido a la Papelera.');
+                self.selectedPath = null;
+            };
+
+            this.renderSidebar();
+            this.renderContent();
+        };
+
+        FilesApp.prototype.renderSidebar = function() {
+            const self = this;
+            const h = VFS.getHomeDir();
+            const places = [
+                { label: 'Carpeta personal', path: h, icon: 'fa-solid fa-house' },
+                { label: 'Escritorio', path: h + '/Escritorio', icon: 'fa-solid fa-desktop' },
+                { label: 'Documentos', path: h + '/Documentos', icon: 'fa-solid fa-file-lines' },
+                { label: 'Descargas', path: h + '/Descargas', icon: 'fa-solid fa-download' },
+                { label: 'Imágenes', path: h + '/Imágenes', icon: 'fa-solid fa-image' },
+                { label: 'Sistema (/)', path: '/', icon: 'fa-solid fa-hard-drive' },
+                { label: 'Configuración (/etc)', path: '/etc', icon: 'fa-solid fa-gears' },
+                { label: 'Papelera', path: '__TRASH__', icon: 'fa-solid fa-trash-can' }
+            ];
+            const sb = this.container.querySelector('#files-sidebar');
+            sb.innerHTML = places.map(function(p) {
+                const activeCls = self.cwd === p.path ? 'bg-ubuntu-orange text-white font-semibold' : '';
+                return '<button data-place="' + p.path + '" class="w-full px-2.5 py-2 rounded-lg text-left flex items-center gap-2.5 hover:bg-ubuntu-orange/20 transition ' + activeCls + '">' +
+                    '<i class="' + p.icon + ' w-4 text-center"></i>' +
+                    '<span class="truncate">' + p.label + '</span>' +
+                '</button>';
+            }).join('');
+
+            sb.querySelectorAll('button').forEach(function(btn) {
+                btn.onclick = function() {
+                    const target = btn.dataset.place;
+                    if (target === '__TRASH__') WM.openApp('trash');
+                    else self.navigateTo(target);
+                };
+            });
+        };
+
+        FilesApp.prototype.navigateTo = function(path) {
+            const norm = VFS.resolvePath(path, this.cwd);
+            const node = VFS.getNode(norm);
+            if (!node || node.type !== 'dir') return;
+            this.cwd = norm;
+            this.history = this.history.slice(0, this.historyIdx + 1);
+            this.history.push(this.cwd);
+            this.historyIdx = this.history.length - 1;
+            this.selectedPath = null;
+            this.renderSidebar();
+            this.renderContent();
+        };
+
+        FilesApp.prototype.pasteClipboard = function() {
+            if (!VFS.clipboard) {
+                DesktopUI.toast('El portapapeles está vacío.', 'warning');
+                return;
+            }
+            const mode = VFS.clipboard.mode;
+            const path = VFS.clipboard.path;
+            if (mode === 'copy') {
+                const res = VFS.copy(path, this.cwd, true);
+                if (!res.ok) DesktopUI.toast(res.error, 'warning');
+                else DesktopUI.toast('Elemento pegado.');
+            } else if (mode === 'cut') {
+                const res = VFS.move(path, this.cwd);
+                if (!res.ok) DesktopUI.toast(res.error, 'warning');
+                else {
+                    VFS.clipboard = null;
+                    DesktopUI.toast('Elemento movido.');
+                }
+            }
+        };
+
+        FilesApp.prototype.openItem = function(path) {
+            const node = VFS.getNode(path);
+            if (!node) return;
+            if (node.type === 'dir') {
+                this.navigateTo(path);
+            } else {
+                WM.openApp('editor', { filePath: path });
+            }
+        };
+
+        FilesApp.prototype.renderContent = function() {
+            const self = this;
+            if (!this.container) return;
+            const bc = this.container.querySelector('#files-breadcrumbs');
+            const parts = this.cwd.split('/').filter(Boolean);
+            let acc = '';
+            let bcHtml = '<button data-bc="/" class="hover:text-ubuntu-orange font-bold">/</button>';
+            parts.forEach(function(p, idx) {
+                acc += '/' + p;
+                const cls = idx === parts.length - 1 ? 'font-bold text-ubuntu-orange' : '';
+                bcHtml += '<span class="opacity-40">/</span><button data-bc="' + acc + '" class="hover:text-ubuntu-orange ' + cls + '">' + p + '</button>';
+            });
+            bc.innerHTML = bcHtml;
+            bc.querySelectorAll('button').forEach(function(b) {
+                b.onclick = function() { self.navigateTo(b.dataset.bc); };
+            });
+
+            const selBar = this.container.querySelector('#files-selection-bar');
+            if (this.selectedPath && VFS.exists(this.selectedPath)) {
+                selBar.classList.remove('hidden');
+                this.container.querySelector('#files-sel-name').textContent = VFS.getBaseName(this.selectedPath);
+            } else {
+                this.selectedPath = null;
+                selBar.classList.add('hidden');
+            }
+
+            const items = VFS.listDir(this.cwd, false) || [];
+            const main = this.container.querySelector('#files-main-area');
+
+            if (items.length === 0) {
+                main.innerHTML = '<div class="h-full flex flex-col items-center justify-center text-gray-400 py-12"><i class="fa-regular fa-folder-open text-4xl mb-2"></i><span>La carpeta está vacía</span></div>';
+            } else if (this.viewMode === 'grid') {
+                main.innerHTML = '<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">' + items.map(function(it) {
+                    const isSel = self.selectedPath === it.path;
+                    const icon = it.type === 'dir' ? 'fa-solid fa-folder text-amber-400' : 'fa-solid fa-file-lines text-sky-400';
+                    const selCls = isSel ? 'bg-ubuntu-orange/20 border-ubuntu-orange' : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5';
+                    return '<div data-item="' + it.path + '" class="p-3 rounded-xl flex flex-col items-center text-center cursor-pointer transition border ' + selCls + '">' +
+                        '<i class="' + icon + ' text-3xl mb-1.5"></i>' +
+                        '<span class="text-xs font-medium break-all line-clamp-2">' + it.name + '</span>' +
+                    '</div>';
+                }).join('') + '</div>';
+            } else {
+                main.innerHTML = '<table class="w-full text-left text-xs border-collapse">' +
+                    '<thead><tr class="border-b border-gray-300 dark:border-white/10 text-gray-400"><th class="py-1.5 px-2">Nombre</th><th class="py-1.5 px-2">Tipo</th><th class="py-1.5 px-2">Modificado</th></tr></thead>' +
+                    '<tbody>' + items.map(function(it) {
+                        const isSel = self.selectedPath === it.path;
+                        const icon = it.type === 'dir' ? 'fa-solid fa-folder text-amber-400' : 'fa-solid fa-file-lines text-sky-400';
+                        const rowCls = isSel ? 'bg-ubuntu-orange/20' : 'hover:bg-black/5 dark:hover:bg-white/5';
+                        return '<tr data-item="' + it.path + '" class="cursor-pointer border-b border-gray-200/40 dark:border-white/5 ' + rowCls + '">' +
+                            '<td class="py-2 px-2 flex items-center gap-2"><i class="' + icon + ' text-base"></i><span>' + it.name + '</span></td>' +
+                            '<td class="py-2 px-2">' + (it.type === 'dir' ? 'Directorio' : 'Archivo') + '</td>' +
+                            '<td class="py-2 px-2 text-gray-400">' + new Date(it.mtime).toLocaleTimeString() + '</td>' +
+                        '</tr>';
+                    }).join('') + '</tbody></table>';
+            }
+
+            main.querySelectorAll('[data-item]').forEach(function(el) {
+                const p = el.dataset.item;
+                el.onclick = function(e) {
+                    e.stopPropagation();
+                    self.selectedPath = p;
+                    self.renderContent();
+                };
+                el.ondblclick = function() { self.openItem(p); };
+                el.oncontextmenu = function(e) {
+                    e.preventDefault();
+                    self.selectedPath = p;
+                    self.renderContent();
+                    DesktopUI.onItemContextMenu(e, p);
+                };
+            });
+
+            const clipStatus = VFS.clipboard ? 'Portapapeles: ' + VFS.getBaseName(VFS.clipboard.path) + ' (' + VFS.clipboard.mode + ')' : 'Listo';
+            this.container.querySelector('#files-statusbar').innerHTML =
+                '<span>' + items.length + ' elemento(s) en ' + this.cwd + '</span>' +
+                '<span>' + clipStatus + '</span>';
+        };
+
+        FilesApp.prototype.destroy = function() {
+            window.removeEventListener('vfs-change', this.onVfsChange);
+        };
+
+        function TerminalApp(params) {
+            const p = params || {};
+            this.cwd = p.cwd || VFS.getHomeDir();
+            this.prevCwd = this.cwd;
+            this.history = [];
+            this.histIdx = -1;
+        }
+
+        TerminalApp.prototype.onParams = function(params) {
+            if (params && params.cwd && VFS.exists(params.cwd)) {
+                this.cwd = params.cwd;
+                this.updatePromptLabel();
+            }
+        };
+
+        TerminalApp.prototype.mount = function(container) {
+            const self = this;
+            this.container = container;
+            this.container.innerHTML =
+                '<div class="flex-1 bg-[#2C001E] text-gray-100 font-mono text-xs p-3 overflow-y-auto selectable-text" id="term-scroll">' +
+                    '<div id="term-output" class="space-y-1 whitespace-pre-wrap break-words"></div>' +
+                    '<div class="flex items-center mt-1">' +
+                        '<span id="term-prompt" class="mr-2 shrink-0"></span>' +
+                        '<input id="term-input" type="text" autocomplete="off" spellcheck="false" class="flex-1 bg-transparent border-none outline-none text-white font-mono text-xs">' +
+                    '</div>' +
+                '</div>';
+
+            this.outputEl = this.container.querySelector('#term-output');
+            this.inputEl = this.container.querySelector('#term-input');
+            this.promptEl = this.container.querySelector('#term-prompt');
+            this.scrollEl = this.container.querySelector('#term-scroll');
+            this.scrollEl.addEventListener('click', function() {
+                if (self.inputEl) self.inputEl.focus();
+            });
+
+            this.printLine('Ubuntu 24.04.1 LTS (GNU/Linux 6.8.0-generic x86_64 - Simulación Web Segura)', 'text-emerald-300 font-bold');
+            this.printLine('Escribe "help" para ver la lista de comandos disponibles. Usa Tab para autocompletar.\n', 'text-gray-300');
+            this.updatePromptLabel();
+
+            this.inputEl.addEventListener('keydown', function(e) { self.onKeyDown(e); });
+            setTimeout(function() { self.inputEl.focus(); }, 50);
+        };
+
+        TerminalApp.prototype.getDisplayPath = function() {
+            const home = VFS.getHomeDir();
+            if (this.cwd === home) return '~';
+            if (this.cwd.indexOf(home + '/') === 0) return '~' + this.cwd.slice(home.length);
+            return this.cwd;
+        };
+
+        TerminalApp.prototype.updatePromptLabel = function() {
+            const u = SystemConfig.data.username;
+            const h = SystemConfig.data.hostname;
+            const p = this.getDisplayPath();
+            this.promptEl.innerHTML = '<span class="text-emerald-400 font-bold">' + u + '@' + h + '</span>:<span class="text-sky-400 font-bold">' + p + '</span>$';
+        };
+
+        TerminalApp.prototype.printLine = function(text, cls) {
+            const div = document.createElement('div');
+            if (cls) div.className = cls;
+            div.textContent = text;
+            this.outputEl.appendChild(div);
+            this.scrollEl.scrollTop = this.scrollEl.scrollHeight;
+        };
+
+        TerminalApp.prototype.printHTML = function(html) {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            this.outputEl.appendChild(div);
+            this.scrollEl.scrollTop = this.scrollEl.scrollHeight;
+        };
+
+        TerminalApp.prototype.onKeyDown = function(e) {
+            if (e.key === 'Enter') {
+                const raw = this.inputEl.value;
+                this.inputEl.value = '';
+                this.printHTML(this.promptEl.innerHTML + ' <span>' + this.escapeHTML(raw) + '</span>');
+                if (raw.trim()) {
+                    this.history.push(raw);
+                    this.histIdx = this.history.length;
+                    this.executeCommandLine(raw);
+                }
+                this.updatePromptLabel();
+                this.scrollEl.scrollTop = this.scrollEl.scrollHeight;
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (this.histIdx > 0) {
+                    this.histIdx--;
+                    this.inputEl.value = this.history[this.histIdx];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (this.histIdx < this.history.length - 1) {
+                    this.histIdx++;
+                    this.inputEl.value = this.history[this.histIdx];
+                } else {
+                    this.histIdx = this.history.length;
+                    this.inputEl.value = '';
+                }
+            } else if (e.key === 'Tab') {
+                e.preventDefault();
+                this.handleTabCompletion();
+            } else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
+                e.preventDefault();
+                this.outputEl.innerHTML = '';
+            }
+        };
+
+        TerminalApp.prototype.handleTabCompletion = function() {
+            const val = this.inputEl.value;
+            const parts = val.split(/\s+/);
+            const last = parts[parts.length - 1] || '';
+
+            if (parts.length <= 1) {
+                const cmds = ['pwd', 'ls', 'cd', 'mkdir', 'touch', 'cat', 'echo', 'cp', 'mv', 'rm', 'rmdir', 'clear', 'whoami', 'hostname', 'uname', 'date', 'find', 'history', 'help'];
+                const match = cmds.find(function(c) { return c.indexOf(last) === 0; });
+                if (match) this.inputEl.value = match + ' ';
+            } else {
+                const items = VFS.listDir(this.cwd, true) || [];
+                const match = items.find(function(i) { return i.name.indexOf(last) === 0; });
+                if (match) {
+                    parts[parts.length - 1] = match.name + (match.type === 'dir' ? '/' : '');
+                    this.inputEl.value = parts.join(' ');
+                }
+            }
+        };
+
+        TerminalApp.prototype.escapeHTML = function(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        };
+
+        TerminalApp.prototype.tokenize = function(line) {
+            const tokens = [];
+            let current = '';
+            let quote = null;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (quote) {
+                    if (ch === quote) quote = null;
+                    else current += ch;
+                } else {
+                    if (ch === '"' || ch === "'") {
+                        quote = ch;
+                    } else if (/\s/.test(ch)) {
+                        if (current.length > 0) {
+                            tokens.push(current);
+                            current = '';
+                        }
+                    } else if (ch === '>') {
+                        if (current.length > 0) {
+                            tokens.push(current);
+                            current = '';
+                        }
+                        if (line[i + 1] === '>') {
+                            tokens.push('>>');
+                            i++;
+                        } else {
+                            tokens.push('>');
+                        }
+                    } else {
+                        current += ch;
+                    }
+                }
+            }
+            if (current.length > 0) tokens.push(current);
+            return tokens;
+        };
+
+        TerminalApp.prototype.executeCommandLine = function(rawLine) {
+            const self = this;
+            const tokens = this.tokenize(rawLine.trim());
+            if (tokens.length === 0) return;
+
+            let redirectMode = null;
+            let redirectTarget = null;
+            const redirIdx = tokens.findIndex(function(t) { return t === '>' || t === '>>'; });
+            let cmdTokens = tokens;
+
+            if (redirIdx !== -1) {
+                redirectMode = tokens[redirIdx];
+                redirectTarget = tokens[redirIdx + 1];
+                if (!redirectTarget) {
+                    this.printLine('bash: error de sintaxis cerca del elemento inesperado newline', 'text-red-400');
+                    return;
+                }
+                cmdTokens = tokens.slice(0, redirIdx);
+            }
+
+            const cmd = cmdTokens[0];
+            const args = cmdTokens.slice(1);
+            const capturedOutput = [];
+
+            const out = function(text, isErr) {
+                if (redirectMode && !isErr) {
+                    capturedOutput.push(text);
+                } else {
+                    self.printLine(text, isErr ? 'text-red-400' : '');
+                }
+            };
+
+            switch (cmd) {
+                case 'help':
+                    out([
+                        'Comandos integrados en GNU bash (Simulador Ubuntu GNOME):',
+                        '  pwd                  Muestra el directorio de trabajo actual',
+                        '  ls [-l] [-a] [ruta]  Lista el contenido del directorio',
+                        '  cd [ruta|~|-]        Cambia el directorio actual',
+                        '  mkdir [-p] <dir>     Crea uno o más directorios',
+                        '  touch <archivo>      Crea un archivo vacío o actualiza su fecha',
+                        '  cat <archivo>        Muestra el contenido de archivos',
+                        '  echo [texto] [> arq] Muestra texto o redirige a un archivo',
+                        '  cp [-r] <orig> <dst> Copia archivos o directorios',
+                        '  mv <orig> <dst>      Mueve o renombra archivos/directorios',
+                        '  rm [-r] [-f] <ruta>  Elimina archivos o directorios',
+                        '  rmdir <dir>          Elimina un directorio vacío',
+                        '  find [ruta] -name X  Busca archivos por nombre',
+                        '  whoami               Muestra el usuario actual',
+                        '  hostname             Muestra el nombre del equipo',
+                        '  uname [-a]           Información del kernel simulado',
+                        '  date                 Fecha y hora del sistema',
+                        '  history              Historial de comandos ejecutados',
+                        '  clear                Limpia la pantalla de la terminal'
+                    ].join('\n'));
+                    break;
+
+                case 'pwd':
+                    out(this.cwd);
+                    break;
+
+                case 'whoami':
+                    out(SystemConfig.data.username);
+                    break;
+
+                case 'hostname':
+                    out(SystemConfig.data.hostname);
+                    break;
+
+                case 'uname':
+                    if (args.indexOf('-a') !== -1) {
+                        out('Linux ' + SystemConfig.data.hostname + ' 6.8.0-45-generic #45-Ubuntu SMP PREEMPT_DYNAMIC x86_64 GNU/Linux');
+                    } else {
+                        out('Linux');
+                    }
+                    break;
+
+                case 'date':
+                    out(new Date().toString());
+                    break;
+
+                case 'clear':
+                    this.outputEl.innerHTML = '';
+                    return;
+
+                case 'history':
+                    this.history.forEach(function(h, i) { out('  ' + (i + 1) + '  ' + h); });
+                    break;
+
+                case 'cd': {
+                    let target = args[0] || '~';
+                    if (target === '-') target = this.prevCwd;
+                    const resolved = VFS.resolvePath(target, this.cwd);
+                    const node = VFS.getNode(resolved);
+                    if (!node) {
+                        out('bash: cd: ' + target + ': No existe el archivo o el directorio', true);
+                    } else if (node.type !== 'dir') {
+                        out('bash: cd: ' + target + ': No es un directorio', true);
+                    } else {
+                        this.prevCwd = this.cwd;
+                        this.cwd = resolved;
+                    }
+                    break;
+                }
+
+                case 'ls': {
+                    let showAll = false;
+                    let longFmt = false;
+                    const paths = [];
+                    args.forEach(function(a) {
+                        if (a.indexOf('-') === 0) {
+                            if (a.indexOf('a') !== -1) showAll = true;
+                            if (a.indexOf('l') !== -1) longFmt = true;
+                        } else {
+                            paths.push(a);
+                        }
+                    });
+                    const targetPath = paths[0] ? VFS.resolvePath(paths[0], this.cwd) : this.cwd;
+                    const node = VFS.getNode(targetPath);
+                    if (!node) {
+                        out('ls: no se puede acceder a ' + paths[0] + ': No existe el archivo o el directorio', true);
+                        break;
+                    }
+                    if (node.type === 'file') {
+                        out(node.name);
+                        break;
+                    }
+                    const list = VFS.listDir(targetPath, showAll) || [];
+                    if (redirectMode) {
+                        out(list.map(function(i) { return i.name; }).join('\n'));
+                    } else if (longFmt) {
+                        const u = SystemConfig.data.username;
+                        if (showAll) {
+                            out('drwxr-xr-x 2 ' + u + ' ' + u + ' 4096 ' + new Date().toLocaleTimeString() + ' .');
+                            out('drwxr-xr-x 2 ' + u + ' ' + u + ' 4096 ' + new Date().toLocaleTimeString() + ' ..');
+                        }
+                        list.forEach(function(item) {
+                            const perm = item.type === 'dir' ? 'drwxr-xr-x' : '-rw-r--r--';
+                            const size = item.type === 'dir' ? 4096 : (item.content ? item.content.length : 0);
+                            const d = new Date(item.mtime).toLocaleTimeString();
+                            const color = item.type === 'dir' ? 'text-sky-400 font-bold' : (item.name.slice(-3) === '.sh' ? 'text-emerald-400' : 'text-white');
+                            self.printHTML(perm + ' 1 ' + u + ' ' + u + ' ' + String(size).padStart(5, ' ') + ' ' + d + ' <span class="' + color + '">' + self.escapeHTML(item.name) + '</span>');
+                        });
+                    } else {
+                        const htmlParts = [];
+                        if (showAll) {
+                            htmlParts.push('<span class="text-sky-400 font-bold mr-4">.</span>');
+                            htmlParts.push('<span class="text-sky-400 font-bold mr-4">..</span>');
+                        }
+                        list.forEach(function(item) {
+                            const color = item.type === 'dir' ? 'text-sky-400 font-bold' : (item.name.slice(-3) === '.sh' ? 'text-emerald-400' : 'text-gray-100');
+                            htmlParts.push('<span class="' + color + ' mr-4">' + self.escapeHTML(item.name) + '</span>');
+                        });
+                        if (htmlParts.length > 0) this.printHTML(htmlParts.join(''));
+                    }
+                    break;
+                }
+
+                case 'mkdir': {
+                    let parents = false;
+                    const dirs = [];
+                    args.forEach(function(a) {
+                        if (a === '-p') parents = true;
+                        else dirs.push(a);
+                    });
+                    if (dirs.length === 0) {
+                        out('mkdir: falta un operando', true);
+                        break;
+                    }
+                    dirs.forEach(function(d) {
+                        const res = VFS.mkdir(VFS.resolvePath(d, self.cwd), parents);
+                        if (!res.ok) out(res.error, true);
+                    });
+                    break;
+                }
+
+                case 'touch': {
+                    if (args.length === 0) {
+                        out('touch: falta un operando archivo', true);
+                        break;
+                    }
+                    args.forEach(function(f) {
+                        const res = VFS.touch(VFS.resolvePath(f, self.cwd));
+                        if (!res.ok) out(res.error, true);
+                    });
+                    break;
+                }
+
+                case 'cat': {
+                    if (args.length === 0) {
+                        out('cat: falta el nombre del archivo', true);
+                        break;
+                    }
+                    args.forEach(function(f) {
+                        const res = VFS.readFile(VFS.resolvePath(f, self.cwd));
+                        if (!res.ok) out('cat: ' + res.error, true);
+                        else out(res.content);
+                    });
+                    break;
+                }
+
+                case 'echo': {
+                    out(args.join(' '));
+                    break;
+                }
+
+                case 'cp': {
+                    let rec = false;
+                    const targets = [];
+                    args.forEach(function(a) {
+                        if (a === '-r' || a === '-R') rec = true;
+                        else targets.push(a);
+                    });
+                    if (targets.length < 2) {
+                        out('cp: falta el archivo de destino después del origen', true);
+                        break;
+                    }
+                    const src = VFS.resolvePath(targets[0], this.cwd);
+                    const dst = VFS.resolvePath(targets[1], this.cwd);
+                    const res = VFS.copy(src, dst, rec);
+                    if (!res.ok) out(res.error, true);
+                    break;
+                }
+
+                case 'mv': {
+                    if (args.length < 2) {
+                        out('mv: falta el operando archivo de destino', true);
+                        break;
+                    }
+                    const src = VFS.resolvePath(args[0], this.cwd);
+                    const dst = VFS.resolvePath(args[1], this.cwd);
+                    const res = VFS.move(src, dst);
+                    if (!res.ok) out(res.error, true);
+                    break;
+                }
+
+                case 'rm': {
+                    let rec = false;
+                    let force = false;
+                    const targets = [];
+                    args.forEach(function(a) {
+                        if (a.indexOf('-') === 0) {
+                            if (a.indexOf('r') !== -1 || a.indexOf('R') !== -1) rec = true;
+                            if (a.indexOf('f') !== -1) force = true;
+                        } else {
+                            targets.push(a);
+                        }
+                    });
+                    if (targets.length === 0) {
+                        if (!force) out('rm: falta un operando', true);
+                        break;
+                    }
+                    targets.forEach(function(t) {
+                        const full = VFS.resolvePath(t, self.cwd);
+                        const res = VFS.removePermanent(full, rec);
+                        if (!res.ok && !force) out(res.error, true);
+                    });
+                    break;
+                }
+
+                case 'rmdir': {
+                    if (args.length === 0) {
+                        out('rmdir: falta un operando', true);
+                        break;
+                    }
+                    args.forEach(function(d) {
+                        const res = VFS.rmdir(VFS.resolvePath(d, self.cwd));
+                        if (!res.ok) out(res.error, true);
+                    });
+                    break;
+                }
+
+                case 'find': {
+                    let searchRoot = this.cwd;
+                    let pattern = '';
+                    for (let i = 0; i < args.length; i++) {
+                        if (args[i] === '-name' && args[i + 1]) {
+                            pattern = args[i + 1].replace(/\*/g, '').toLowerCase();
+                            i++;
+                        } else if (args[i].indexOf('-') !== 0) {
+                            searchRoot = VFS.resolvePath(args[i], this.cwd);
+                        }
+                    }
+                    const prefix = searchRoot === '/' ? '/' : searchRoot;
+                    Object.keys(VFS.nodes).forEach(function(k) {
+                        const node = VFS.nodes[k];
+                        if (k.indexOf('/.trash') === 0) return;
+                        if (k === searchRoot || k.indexOf(prefix) === 0) {
+                            if (!pattern || node.name.toLowerCase().indexOf(pattern) !== -1) {
+                                out(k);
+                            }
+                        }
+                    });
+                    break;
+                }
+
+                default:
+                    out(cmd + ': orden no encontrada. Escribe «help» para ver los comandos soportados.', true);
+                    break;
+            }
+
+            if (redirectMode && redirectTarget) {
+                const destPath = VFS.resolvePath(redirectTarget, this.cwd);
+                const textOut = capturedOutput.join('\n') + (capturedOutput.length ? '\n' : '');
+                if (redirectMode === '>>' && VFS.exists(destPath)) {
+                    const prev = VFS.readFile(destPath);
+                    VFS.writeFile(destPath, (prev.content || '') + textOut);
+                } else {
+                    VFS.writeFile(destPath, textOut);
+                }
+            }
+        };
+
+        function EditorApp(params) {
+            const p = params || {};
+            this.currentFilePath = p.filePath || null;
+            this.dirty = false;
+        }
+
+        EditorApp.prototype.onParams = function(params) {
+            if (params && params.filePath) {
+                this.requestOpenFile(params.filePath);
+            }
+        };
+
+        EditorApp.prototype.mount = function(container) {
+            const self = this;
+            this.container = container;
+            this.container.innerHTML =
+                '<div class="h-10 px-3 bg-gray-100 dark:bg-[#262626] border-b border-gray-300 dark:border-white/10 flex items-center justify-between gap-2 shrink-0 text-xs">' +
+                    '<div class="flex items-center gap-1.5">' +
+                        '<button id="ed-new" class="px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 hover:bg-ubuntu-orange hover:text-white transition"><i class="fa-solid fa-file mr-1"></i>Nuevo</button>' +
+                        '<button id="ed-open" class="px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 hover:bg-ubuntu-orange hover:text-white transition"><i class="fa-solid fa-folder-open mr-1"></i>Abrir...</button>' +
+                        '<button id="ed-save" class="px-2.5 py-1 rounded-lg bg-ubuntu-orange text-white hover:bg-orange-600 transition font-semibold"><i class="fa-solid fa-floppy-disk mr-1"></i>Guardar</button>' +
+                        '<button id="ed-save-as" class="px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 hover:bg-ubuntu-orange hover:text-white transition">Guardar como...</button>' +
+                    '</div>' +
+                    '<span id="ed-filepath-badge" class="font-mono text-[11px] text-gray-500 truncate">Sin título</span>' +
+                '</div>' +
+                '<textarea id="ed-textarea" placeholder="Escribe aquí el contenido de tu archivo o script..." class="flex-1 w-full p-4 bg-white dark:bg-[#1E1E1E] text-gray-900 dark:text-gray-100 font-mono text-xs outline-none resize-none leading-relaxed"></textarea>' +
+                '<div class="h-6 px-3 bg-gray-100 dark:bg-[#222222] border-t border-gray-300 dark:border-white/10 flex items-center justify-between text-[11px] text-gray-500">' +
+                    '<span id="ed-status-msg">UTF-8 • Unix (LF)</span>' +
+                    '<span id="ed-counters">Líneas: 1 | Palabras: 0 | Caracteres: 0</span>' +
+                '</div>';
+
+            this.textarea = this.container.querySelector('#ed-textarea');
+            this.badge = this.container.querySelector('#ed-filepath-badge');
+            this.counters = this.container.querySelector('#ed-counters');
+
+            this.textarea.addEventListener('input', function() {
+                self.setDirty(true);
+                self.updateCounters();
+            });
+
+            this.container.querySelector('#ed-new').onclick = function() { self.newDocument(); };
+            this.container.querySelector('#ed-open').onclick = function() { self.promptOpenDialog(); };
+            this.container.querySelector('#ed-save').onclick = function() { self.saveDocument(); };
+            this.container.querySelector('#ed-save-as').onclick = function() { self.saveDocumentAs(); };
+
+            if (this.currentFilePath) {
+                this.loadFile(this.currentFilePath);
+            } else {
+                this.updateCounters();
+            }
+        };
+
+        EditorApp.prototype.setDirty = function(val) {
+            this.dirty = val;
+            const name = this.currentFilePath ? VFS.getBaseName(this.currentFilePath) : 'Sin título';
+            this.badge.textContent = (this.currentFilePath || 'Sin guardar') + (this.dirty ? ' • Modificado' : '');
+            WM.setWindowTitle('editor', (this.dirty ? '* ' : '') + name + ' — Editor de Texto');
+        };
+
+        EditorApp.prototype.updateCounters = function() {
+            const text = this.textarea.value;
+            const lines = text.split('\n').length;
+            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            const chars = text.length;
+            this.counters.textContent = 'Líneas: ' + lines + ' | Palabras: ' + words + ' | Caracteres: ' + chars;
+        };
+
+        EditorApp.prototype.loadFile = function(path) {
+            const res = VFS.readFile(path);
+            if (!res.ok) {
+                DesktopUI.toast(res.error, 'warning');
+                return;
+            }
+            this.currentFilePath = VFS.resolvePath(path);
+            this.textarea.value = res.content;
+            this.setDirty(false);
+            this.updateCounters();
+        };
+
+        EditorApp.prototype.requestOpenFile = function(path) {
+            const self = this;
+            if (this.dirty) {
+                OSModal.confirm('Cambios sin guardar', 'Tienes cambios sin guardar en el documento actual. ¿Deseas descartarlos y abrir el nuevo archivo?', function() {
+                    self.loadFile(path);
+                }, true);
+            } else {
+                this.loadFile(path);
+            }
+        };
+
+        EditorApp.prototype.newDocument = function() {
+            const self = this;
+            const reset = function() {
+                self.currentFilePath = null;
+                self.textarea.value = '';
+                self.setDirty(false);
+                self.updateCounters();
+            };
+            if (this.dirty) {
+                OSModal.confirm('Cambios sin guardar', '¿Descartar los cambios actuales y crear un archivo en blanco?', reset, true);
+            } else {
+                reset();
+            }
+        };
+
+        EditorApp.prototype.promptOpenDialog = function() {
+            const self = this;
+            const defaultPath = VFS.getHomeDir() + '/Escritorio/leeme.txt';
+            OSModal.prompt('Abrir archivo del sistema', 'Introduce la ruta del archivo en el VFS:', this.currentFilePath || defaultPath, function(path) {
+                self.requestOpenFile(path);
+            });
+        };
+
+        EditorApp.prototype.saveDocument = function(callback) {
+            if (!this.currentFilePath) {
+                this.saveDocumentAs(callback);
+                return;
+            }
+            const res = VFS.writeFile(this.currentFilePath, this.textarea.value);
+            if (!res.ok) {
+                DesktopUI.toast(res.error, 'warning');
+            } else {
+                this.setDirty(false);
+                DesktopUI.toast('Guardado en ' + this.currentFilePath);
+                if (callback) callback();
+            }
+        };
+
+        EditorApp.prototype.saveDocumentAs = function(callback) {
+            const self = this;
+            const def = this.currentFilePath || (VFS.getHomeDir() + '/Documentos/nota.txt');
+            OSModal.prompt('Guardar como...', 'Ruta completa donde guardar el archivo:', def, function(path) {
+                const norm = VFS.resolvePath(path, VFS.getHomeDir());
+                const res = VFS.writeFile(norm, self.textarea.value);
+                if (!res.ok) {
+                    DesktopUI.toast(res.error, 'warning');
+                } else {
+                    self.currentFilePath = norm;
+                    self.setDirty(false);
+                    DesktopUI.toast('Archivo guardado en ' + norm);
+                    if (callback) callback();
+                }
+            });
+        };
+
+        EditorApp.prototype.canClose = function(proceedClose) {
+            const self = this;
+            if (!this.dirty) {
+                proceedClose();
+                return;
+            }
+            OSModal.show({
+                title: '¿Guardar los cambios antes de cerrar?',
+                message: 'Si no guardas el documento, los cambios realizados se perderán.',
+                buttons: [
+                    { label: 'Cancelar' },
+                    { label: 'Cerrar sin guardar', danger: true, onClick: proceedClose },
+                    { label: 'Guardar y cerrar', primary: true, onClick: function() { self.saveDocument(proceedClose); } }
+                ]
+            });
+        };
+
+        function BrowserApp() {
+            this.history = ['about:ubuntu'];
+            this.histIdx = 0;
+        }
+
+        BrowserApp.prototype.mount = function(container) {
+            const self = this;
+            this.container = container;
+            this.container.innerHTML =
+                '<div class="h-11 px-3 bg-gray-100 dark:bg-[#262626] border-b border-gray-300 dark:border-white/10 flex items-center gap-2 shrink-0">' +
+                    '<button id="br-back" class="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10"><i class="fa-solid fa-arrow-left text-xs"></i></button>' +
+                    '<button id="br-fwd" class="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10"><i class="fa-solid fa-arrow-right text-xs"></i></button>' +
+                    '<button id="br-reload" class="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10"><i class="fa-solid fa-rotate-right text-xs"></i></button>' +
+                    '<button id="br-home" title="Página de inicio" class="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10"><i class="fa-solid fa-house text-xs"></i></button>' +
+                    '<form id="br-form" class="flex-1 flex">' +
+                        '<input id="br-url" type="text" value="about:ubuntu" class="w-full px-3 py-1.5 rounded-full bg-white dark:bg-black/30 border border-gray-300 dark:border-white/15 text-xs focus:outline-none focus:border-ubuntu-orange">' +
+                    '</form>' +
+                    '<button id="br-ext" title="Abrir en una pestaña real de tu navegador" class="px-2.5 py-1 rounded-lg bg-ubuntu-orange text-white hover:bg-orange-600 text-xs font-semibold flex items-center gap-1.5 shrink-0">' +
+                        '<i class="fa-solid fa-up-right-from-square"></i>' +
+                        '<span class="hidden sm:inline">Abrir en pestaña</span>' +
+                    '</button>' +
+                '</div>' +
+                '<div class="h-8 px-3 bg-gray-50 dark:bg-[#202020] border-b border-gray-200 dark:border-white/10 flex items-center gap-2 text-[11px] overflow-x-auto shrink-0">' +
+                    '<button data-bm="about:ubuntu" class="px-2 py-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 flex items-center gap-1"><i class="fa-brands fa-ubuntu text-ubuntu-orange"></i>Inicio Ubuntu</button>' +
+                    '<button data-bm="https://es.wikipedia.org/wiki/Ubuntu" class="px-2 py-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 flex items-center gap-1"><i class="fa-brands fa-wikipedia-w"></i>Wikipedia Ubuntu</button>' +
+                    '<button data-bm="https://es.wikipedia.org/wiki/GNU/Linux" class="px-2 py-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 flex items-center gap-1"><i class="fa-brands fa-linux"></i>Wikipedia Linux</button>' +
+                    '<button data-bm="https://example.com" class="px-2 py-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 flex items-center gap-1"><i class="fa-solid fa-globe"></i>Example.com</button>' +
+                '</div>' +
+                '<div class="px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between text-[11px] text-amber-600 dark:text-amber-300 shrink-0">' +
+                    '<span><i class="fa-solid fa-shield-halved mr-1"></i>Si un sitio externo bloquea la incrustación (X-Frame-Options/CSP), usa el botón «Abrir en pestaña».</span>' +
+                '</div>' +
+                '<div class="flex-1 relative bg-white dark:bg-[#181818] overflow-hidden">' +
+                    '<div id="br-startpage" class="absolute inset-0 p-8 flex flex-col items-center justify-center text-center overflow-y-auto">' +
+                        '<div class="w-16 h-16 rounded-2xl bg-ubuntu-orange text-white flex items-center justify-center text-3xl shadow-lg mb-4">' +
+                            '<i class="fa-brands fa-ubuntu"></i>' +
+                        '</div>' +
+                        '<h2 class="text-xl font-bold mb-1">Portal Web Ubuntu GNOME</h2>' +
+                        '<p class="text-xs text-gray-500 mb-6 max-w-md">Navega por páginas compatibles con incrustación (como Wikipedia) o busca términos directamente.</p>' +
+                        '<div class="flex w-full max-w-md gap-2 mb-6">' +
+                            '<input id="br-home-search" type="text" placeholder="Buscar artículo en Wikipedia (ej. Bash, Kernel Linux)..." class="flex-1 px-4 py-2 rounded-full bg-gray-100 dark:bg-white/10 border border-gray-300 dark:border-white/15 text-xs outline-none focus:border-ubuntu-orange">' +
+                            '<button id="br-home-btn" class="px-4 py-2 rounded-full bg-ubuntu-orange text-white text-xs font-semibold">Buscar</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<iframe id="br-iframe" class="hidden w-full h-full border-0 bg-white" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>' +
+                '</div>';
+
+            this.urlInput = this.container.querySelector('#br-url');
+            this.iframe = this.container.querySelector('#br-iframe');
+            this.startPage = this.container.querySelector('#br-startpage');
+
+            this.container.querySelector('#br-form').onsubmit = function(e) {
+                e.preventDefault();
+                self.navigate(self.urlInput.value);
+            };
+            this.container.querySelector('#br-home').onclick = function() { self.navigate('about:ubuntu'); };
+            this.container.querySelector('#br-reload').onclick = function() { self.navigate(self.history[self.histIdx], false); };
+            this.container.querySelector('#br-back').onclick = function() {
+                if (self.histIdx > 0) {
+                    self.histIdx--;
+                    self.navigate(self.history[self.histIdx], false);
+                }
+            };
+            this.container.querySelector('#br-fwd').onclick = function() {
+                if (self.histIdx < self.history.length - 1) {
+                    self.histIdx++;
+                    self.navigate(self.history[self.histIdx], false);
+                }
+            };
+            this.container.querySelector('#br-ext').onclick = function() {
+                const current = self.urlInput.value;
+                const target = current === 'about:ubuntu' ? 'https://ubuntu.com' : current;
+                window.open(target, '_blank');
+            };
+
+            this.container.querySelectorAll('[data-bm]').forEach(function(btn) {
+                btn.onclick = function() { self.navigate(btn.dataset.bm); };
+            });
+
+            this.container.querySelector('#br-home-btn').onclick = function() {
+                const q = self.container.querySelector('#br-home-search').value.trim();
+                if (q) self.navigate('https://es.wikipedia.org/wiki/' + encodeURIComponent(q));
+            };
+        };
+
+        BrowserApp.prototype.navigate = function(rawUrl, pushHistory) {
+            const shouldPush = pushHistory !== false;
+            let url = rawUrl.trim();
+            if (!SystemConfig.data.network.wifiEnabled && !SystemConfig.data.network.ethernetEnabled && url !== 'about:ubuntu') {
+                DesktopUI.toast('Sin conexión de red simulada. Activa Wi-Fi o Ethernet.', 'warning');
+                return;
+            }
+
+            if (url !== 'about:ubuntu' && !/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+            }
+
+            this.urlInput.value = url;
+            if (shouldPush) {
+                this.history = this.history.slice(0, this.histIdx + 1);
+                this.history.push(url);
+                this.histIdx = this.history.length - 1;
+            }
+
+            if (url === 'about:ubuntu') {
+                this.iframe.classList.add('hidden');
+                this.startPage.classList.remove('hidden');
+            } else {
+                this.startPage.classList.add('hidden');
+                this.iframe.classList.remove('hidden');
+                this.iframe.src = url;
+            }
+        };
+
+        function SettingsApp(params) {
+            const p = params || {};
+            this.activeTab = p.tab || 'network';
+        }
+
+        SettingsApp.prototype.onParams = function(params) {
+            if (params && params.tab) {
+                this.activeTab = params.tab;
+                this.render();
+            }
+        };
+
+        SettingsApp.prototype.mount = function(container) {
+            this.container = container;
+            this.render();
+        };
+
+        SettingsApp.prototype.render = function() {
+            const self = this;
+            const tabs = [
+                { id: 'network', label: 'Red (Wi-Fi / IP)', icon: 'fa-solid fa-wifi' },
+                { id: 'appearance', label: 'Apariencia y Fondo', icon: 'fa-solid fa-palette' },
+                { id: 'users', label: 'Usuario y Sistema', icon: 'fa-solid fa-user-shield' },
+                { id: 'datetime', label: 'Fecha, Hora e Idioma', icon: 'fa-solid fa-clock' }
+            ];
+
+            this.container.innerHTML =
+                '<div class="flex-1 flex overflow-hidden">' +
+                    '<div class="w-48 bg-gray-50 dark:bg-[#222222] border-r border-gray-300 dark:border-white/10 p-2.5 space-y-1 shrink-0">' +
+                        tabs.map(function(t) {
+                            const activeCls = self.activeTab === t.id ? 'bg-ubuntu-orange text-white font-semibold' : 'hover:bg-black/5 dark:hover:bg-white/5';
+                            return '<button data-tab="' + t.id + '" class="w-full px-3 py-2 rounded-xl text-left text-xs flex items-center gap-2.5 transition ' + activeCls + '">' +
+                                '<i class="' + t.icon + ' w-4 text-center"></i>' +
+                                '<span>' + t.label + '</span>' +
+                            '</button>';
+                        }).join('') +
+                    '</div>' +
+                    '<div id="settings-panel-body" class="flex-1 p-6 overflow-y-auto space-y-5"></div>' +
+                '</div>';
+
+            this.container.querySelectorAll('[data-tab]').forEach(function(btn) {
+                btn.onclick = function() {
+                    self.activeTab = btn.dataset.tab;
+                    self.render();
+                };
+            });
+
+            const body = this.container.querySelector('#settings-panel-body');
+            if (this.activeTab === 'network') this.renderNetworkTab(body);
+            else if (this.activeTab === 'appearance') this.renderAppearanceTab(body);
+            else if (this.activeTab === 'users') this.renderUsersTab(body);
+            else if (this.activeTab === 'datetime') this.renderDateTimeTab(body);
+        };
+
+        SettingsApp.prototype.renderNetworkTab = function(body) {
+            const self = this;
+            const net = SystemConfig.data.network;
+            const ssids = ['Ubuntu-Net-5G', 'GNOME-Fiber-Plus', 'Oficina-Linux-WiFi', 'Red-Invitados'];
+
+            body.innerHTML =
+                '<h3 class="text-base font-bold">Configuración de Red (Simulada)</h3>' +
+                '<div class="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-xs text-sky-600 dark:text-sky-300">' +
+                    '<i class="fa-solid fa-circle-info mr-1"></i>' +
+                    'Simulación local segura: Estos ajustes actualizan los indicadores del sistema y la conectividad del navegador simulado, sin alterar la red real de tu ordenador.' +
+                '</div>' +
+                '<div class="p-4 rounded-xl bg-gray-100 dark:bg-white/5 space-y-3">' +
+                    '<div class="flex items-center justify-between">' +
+                        '<div>' +
+                            '<div class="font-bold text-xs">Inalámbrico (Wi-Fi)</div>' +
+                            '<div class="text-[11px] text-gray-400">' + (net.wifiEnabled ? 'Conectado a ' + net.connectedSsid : 'Desactivado') + '</div>' +
+                        '</div>' +
+                        '<input type="checkbox" id="set-wifi-toggle" ' + (net.wifiEnabled ? 'checked' : '') + ' class="w-4 h-4 accent-ubuntu-orange">' +
+                    '</div>' +
+                    '<div class="space-y-1.5 pt-2 border-t border-gray-300 dark:border-white/10">' +
+                        ssids.map(function(s) {
+                            const isConn = net.connectedSsid === s && net.wifiEnabled;
+                            const btnCls = isConn ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-white/10';
+                            return '<div class="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-black/20 text-xs">' +
+                                '<span><i class="fa-solid fa-wifi mr-2 text-ubuntu-orange"></i>' + s + '</span>' +
+                                '<button data-ssid="' + s + '" class="px-2.5 py-1 rounded ' + btnCls + ' text-[11px]">' +
+                                    (isConn ? 'Conectado' : 'Conectar') +
+                                '</button>' +
+                            '</div>';
+                        }).join('') +
+                    '</div>' +
+                '</div>' +
+                '<div class="p-4 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-between">' +
+                    '<div>' +
+                        '<div class="font-bold text-xs">Red Cableada (Ethernet eth0)</div>' +
+                        '<div class="text-[11px] text-gray-400">' + (net.ethernetEnabled ? 'Cable conectado (1000 Mb/s)' : 'Desconectado') + '</div>' +
+                    '</div>' +
+                    '<input type="checkbox" id="set-eth-toggle" ' + (net.ethernetEnabled ? 'checked' : '') + ' class="w-4 h-4 accent-ubuntu-orange">' +
+                '</div>' +
+                '<div class="p-4 rounded-xl bg-gray-100 dark:bg-white/5 space-y-3">' +
+                    '<div class="font-bold text-xs">Parámetros IPv4 y DNS</div>' +
+                    '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">' +
+                        '<div>' +
+                            '<label class="block mb-1 text-gray-400">Dirección IPv4</label>' +
+                            '<input id="set-ip" value="' + net.ip + '" class="w-full p-2 rounded bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10 font-mono">' +
+                        '</div>' +
+                        '<div>' +
+                            '<label class="block mb-1 text-gray-400">Máscara de subred</label>' +
+                            '<input id="set-mask" value="' + net.netmask + '" class="w-full p-2 rounded bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10 font-mono">' +
+                        '</div>' +
+                        '<div>' +
+                            '<label class="block mb-1 text-gray-400">Puerta de enlace (Gateway)</label>' +
+                            '<input id="set-gw" value="' + net.gateway + '" class="w-full p-2 rounded bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10 font-mono">' +
+                        '</div>' +
+                        '<div>' +
+                            '<label class="block mb-1 text-gray-400">Servidores DNS</label>' +
+                            '<input id="set-dns" value="' + net.dns + '" class="w-full p-2 rounded bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10 font-mono">' +
+                        '</div>' +
+                    '</div>' +
+                    '<button id="set-save-net" class="px-4 py-1.5 rounded-lg bg-ubuntu-orange text-white text-xs font-semibold">Aplicar ajustes IPv4</button>' +
+                '</div>';
+
+            body.querySelector('#set-wifi-toggle').onchange = function(e) {
+                SystemConfig.data.network.wifiEnabled = e.target.checked;
+                SystemConfig.save();
+                self.render();
+            };
+            body.querySelector('#set-eth-toggle').onchange = function(e) {
+                SystemConfig.data.network.ethernetEnabled = e.target.checked;
+                SystemConfig.save();
+                self.render();
+            };
+            body.querySelectorAll('[data-ssid]').forEach(function(btn) {
+                btn.onclick = function() {
+                    SystemConfig.data.network.wifiEnabled = true;
+                    SystemConfig.data.network.connectedSsid = btn.dataset.ssid;
+                    SystemConfig.save();
+                    DesktopUI.toast('Conectado a la red Wi-Fi «' + btn.dataset.ssid + '»');
+                    self.render();
+                };
+            });
+            body.querySelector('#set-save-net').onclick = function() {
+                SystemConfig.data.network.ip = body.querySelector('#set-ip').value.trim();
+                SystemConfig.data.network.netmask = body.querySelector('#set-mask').value.trim();
+                SystemConfig.data.network.gateway = body.querySelector('#set-gw').value.trim();
+                SystemConfig.data.network.dns = body.querySelector('#set-dns').value.trim();
+                SystemConfig.save();
+                DesktopUI.toast('Configuración IPv4 simulada actualizada.');
+            };
+        };
+
+        SettingsApp.prototype.renderAppearanceTab = function(body) {
+            const self = this;
+            const curTheme = SystemConfig.data.theme;
+            const curWp = SystemConfig.data.wallpaper;
+            const wps = [
+                { id: 'wp-default', name: 'Ubuntu Yaru Clásico' },
+                { id: 'wp-aubergine', name: 'Berenjena Profundo' },
+                { id: 'wp-sunset', name: 'Atardecer Noble' },
+                { id: 'wp-ocean', name: 'Océano Nocturno' },
+                { id: 'wp-minimal', name: 'Gris Grafito' }
+            ];
+
+            body.innerHTML =
+                '<h3 class="text-base font-bold">Apariencia y Estilo de Escritorio</h3>' +
+                '<div class="grid grid-cols-2 gap-4">' +
+                    '<button id="app-theme-dark" class="p-4 rounded-xl border-2 ' + (curTheme === 'dark' ? 'border-ubuntu-orange' : 'border-transparent') + ' bg-[#242424] text-white flex flex-col items-center gap-2">' +
+                        '<i class="fa-solid fa-moon text-2xl text-ubuntu-orange"></i>' +
+                        '<span class="font-semibold text-xs">Estilo Oscuro</span>' +
+                    '</button>' +
+                    '<button id="app-theme-light" class="p-4 rounded-xl border-2 ' + (curTheme === 'light' ? 'border-ubuntu-orange' : 'border-transparent') + ' bg-gray-100 text-gray-900 flex flex-col items-center gap-2">' +
+                        '<i class="fa-solid fa-sun text-2xl text-amber-500"></i>' +
+                        '<span class="font-semibold text-xs">Estilo Claro</span>' +
+                    '</button>' +
+                '</div>' +
+                '<div class="pt-2">' +
+                    '<h4 class="font-bold text-xs mb-3">Fondo de pantalla</h4>' +
+                    '<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">' +
+                        wps.map(function(w) {
+                            const bCls = curWp === w.id ? 'border-ubuntu-orange' : 'border-transparent';
+                            return '<button data-wp="' + w.id + '" class="p-2 rounded-xl border-2 ' + bCls + ' bg-gray-100 dark:bg-white/5 text-left">' +
+                                '<div class="h-16 rounded-lg ' + w.id + ' mb-1.5"></div>' +
+                                '<div class="text-xs font-medium">' + w.name + '</div>' +
+                            '</button>';
+                        }).join('') +
+                    '</div>' +
+                '</div>';
+
+            body.querySelector('#app-theme-dark').onclick = function() {
+                SystemConfig.data.theme = 'dark';
+                SystemConfig.save();
+                self.render();
+            };
+            body.querySelector('#app-theme-light').onclick = function() {
+                SystemConfig.data.theme = 'light';
+                SystemConfig.save();
+                self.render();
+            };
+            body.querySelectorAll('[data-wp]').forEach(function(btn) {
+                btn.onclick = function() {
+                    SystemConfig.data.wallpaper = btn.dataset.wp;
+                    SystemConfig.save();
+                    self.render();
+                };
+            });
+        };
+
+        SettingsApp.prototype.renderUsersTab = function(body) {
+            body.innerHTML =
+                '<h3 class="text-base font-bold">Usuarios, Equipo y Copia de Seguridad</h3>' +
+                '<div class="p-4 rounded-xl bg-gray-100 dark:bg-white/5 space-y-3 text-xs">' +
+                    '<div>' +
+                        '<label class="block mb-1 text-gray-400">Nombre de usuario activo</label>' +
+                        '<input id="usr-name" value="' + SystemConfig.data.username + '" class="w-full p-2 rounded bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10 font-mono">' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="block mb-1 text-gray-400">Nombre del equipo (/etc/hostname)</label>' +
+                        '<input id="usr-host" value="' + SystemConfig.data.hostname + '" class="w-full p-2 rounded bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10 font-mono">' +
+                    '</div>' +
+                    '<button id="usr-save" class="px-4 py-1.5 rounded-lg bg-ubuntu-orange text-white font-semibold">Guardar Usuario y Equipo</button>' +
+                '</div>' +
+                '<div class="p-4 rounded-xl bg-gray-100 dark:bg-white/5 space-y-3 text-xs">' +
+                    '<div class="font-bold">Respaldo y Restauración del Sistema de Archivos (VFS)</div>' +
+                    '<p class="text-gray-400">Puedes exportar todos tus archivos y configuración en un archivo JSON o restaurar el sistema a su estado original.</p>' +
+                    '<div class="flex flex-wrap gap-2">' +
+                        '<button id="sys-export" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"><i class="fa-solid fa-file-export mr-1"></i>Exportar Sistema (JSON)</button>' +
+                        '<button id="sys-import" class="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold"><i class="fa-solid fa-file-import mr-1"></i>Restaurar JSON</button>' +
+                        '<button id="sys-reset" class="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold"><i class="fa-solid fa-rotate-left mr-1"></i>Restablecer de Fábrica</button>' +
+                    '</div>' +
+                '</div>';
+
+            body.querySelector('#usr-save').onclick = function() {
+                const oldU = SystemConfig.data.username;
+                const newU = body.querySelector('#usr-name').value.trim().replace(/\s+/g, '') || 'usuario';
+                const newH = body.querySelector('#usr-host').value.trim().replace(/\s+/g, '') || 'ubuntu-pc';
+                VFS.renameUserHome(oldU, newU);
+                SystemConfig.data.username = newU;
+                SystemConfig.data.hostname = newH;
+                SystemConfig.save();
+                DesktopUI.toast('Usuario actualizado a ' + newU + '@' + newH);
+            };
+
+            body.querySelector('#sys-export').onclick = function() { VFS.exportFullSystemJSON(); };
+            body.querySelector('#sys-import').onclick = function() { document.getElementById('json-restore-input').click(); };
+            body.querySelector('#sys-reset').onclick = function() {
+                OSModal.confirm('Restablecer de fábrica', '¿Estás seguro de que deseas borrar todos los archivos creados y restaurar el sistema inicial?', function() {
+                    localStorage.clear();
+                    VFS.seedDefaultFilesystem();
+                    VFS.saveToDB();
+                    DesktopUI.toast('Sistema restaurado a valores de fábrica.');
+                }, true);
+            };
+        };
+
+        SettingsApp.prototype.renderDateTimeTab = function(body) {
+            body.innerHTML =
+                '<h3 class="text-base font-bold">Fecha, Hora e Idioma</h3>' +
+                '<div class="p-4 rounded-xl bg-gray-100 dark:bg-white/5 space-y-4 text-xs">' +
+                    '<div>' +
+                        '<label class="block mb-1 font-semibold">Idioma de la interfaz</label>' +
+                        '<select id="dt-lang" class="w-full p-2 rounded bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10">' +
+                            '<option value="es" ' + (SystemConfig.data.language === 'es' ? 'selected' : '') + '>Español</option>' +
+                            '<option value="en" ' + (SystemConfig.data.language === 'en' ? 'selected' : '') + '>English</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="block mb-1 font-semibold">Zona Horaria</label>' +
+                        '<select id="dt-tz" class="w-full p-2 rounded bg-white dark:bg-black/30 border border-gray-300 dark:border-white/10">' +
+                            '<option value="America/Lima" ' + (SystemConfig.data.timezone === 'America/Lima' ? 'selected' : '') + '>America/Lima (Perú)</option>' +
+                            '<option value="Europe/Madrid" ' + (SystemConfig.data.timezone === 'Europe/Madrid' ? 'selected' : '') + '>Europe/Madrid (España)</option>' +
+                            '<option value="America/Mexico_City" ' + (SystemConfig.data.timezone === 'America/Mexico_City' ? 'selected' : '') + '>America/Mexico_City (México)</option>' +
+                            '<option value="America/Argentina/Buenos_Aires" ' + (SystemConfig.data.timezone === 'America/Argentina/Buenos_Aires' ? 'selected' : '') + '>America/Buenos_Aires (Argentina)</option>' +
+                            '<option value="UTC" ' + (SystemConfig.data.timezone === 'UTC' ? 'selected' : '') + '>UTC</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div class="flex items-center justify-between">' +
+                        '<span class="font-semibold">Formato de 24 horas</span>' +
+                        '<input type="checkbox" id="dt-24h" ' + (SystemConfig.data.use24h ? 'checked' : '') + ' class="w-4 h-4 accent-ubuntu-orange">' +
+                    '</div>' +
+                '</div>';
+
+            body.querySelector('#dt-lang').onchange = function(e) {
+                SystemConfig.data.language = e.target.value;
+                SystemConfig.save();
+            };
+            body.querySelector('#dt-tz').onchange = function(e) {
+                SystemConfig.data.timezone = e.target.value;
+                SystemConfig.save();
+            };
+            body.querySelector('#dt-24h').onchange = function(e) {
+                SystemConfig.data.use24h = e.target.checked;
+                SystemConfig.save();
+            };
+        };
+
+        function TrashApp() {
+            const self = this;
+            this.onVfsChange = function() { self.render(); };
+        }
+
+        TrashApp.prototype.mount = function(container) {
+            this.container = container;
+            window.addEventListener('vfs-change', this.onVfsChange);
+            this.render();
+        };
+
+        TrashApp.prototype.render = function() {
+            if (!this.container) return;
+            const items = (VFS.listDir('/.trash', true) || []);
+
+            let listHtml = '';
+            if (items.length === 0) {
+                listHtml = '<div class="h-full flex flex-col items-center justify-center text-gray-400">' +
+                    '<i class="fa-solid fa-trash-can text-4xl mb-2 opacity-40"></i>' +
+                    '<span>La papelera está vacía</span>' +
+                '</div>';
+            } else {
+                listHtml = '<div class="space-y-2">' + items.map(function(it) {
+                    const icon = it.type === 'dir' ? 'fa-solid fa-folder text-amber-400' : 'fa-solid fa-file-lines text-sky-400';
+                    return '<div class="p-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-between gap-2 text-xs">' +
+                        '<div class="flex items-center gap-3 overflow-hidden">' +
+                            '<i class="' + icon + ' text-xl"></i>' +
+                            '<div class="overflow-hidden">' +
+                                '<div class="font-bold truncate">' + it.name + '</div>' +
+                                '<div class="text-[11px] text-gray-400 truncate">Origen: ' + (it.originalPath || 'Desconocido') + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="flex items-center gap-1.5 shrink-0">' +
+                            '<button data-restore="' + it.path + '" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Restaurar</button>' +
+                            '<button data-delperm="' + it.path + '" class="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white"><i class="fa-solid fa-xmark"></i></button>' +
+                        '</div>' +
+                    '</div>';
+                }).join('') + '</div>';
+            }
+
+            this.container.innerHTML =
+                '<div class="h-11 px-4 bg-gray-100 dark:bg-[#262626] border-b border-gray-300 dark:border-white/10 flex items-center justify-between shrink-0 text-xs">' +
+                    '<span class="font-semibold">' + items.length + ' elemento(s) en la Papelera</span>' +
+                    '<button id="trash-empty-btn" ' + (items.length === 0 ? 'disabled' : '') + ' class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white font-semibold transition">' +
+                        '<i class="fa-solid fa-fire mr-1"></i>Vaciar Papelera' +
+                    '</button>' +
+                '</div>' +
+                '<div class="flex-1 p-4 overflow-y-auto">' + listHtml + '</div>';
+
+            const emptyBtn = this.container.querySelector('#trash-empty-btn');
+            if (emptyBtn) {
+                emptyBtn.onclick = function() {
+                    OSModal.confirm('Vaciar Papelera', '¿Deseas eliminar permanentemente todos los elementos de la papelera? Esta acción no se puede deshacer.', function() {
+                        VFS.emptyTrash();
+                        DesktopUI.toast('Papelera vaciada.');
+                    }, true);
+                };
+            }
+
+            this.container.querySelectorAll('[data-restore]').forEach(function(btn) {
+                btn.onclick = function() {
+                    const res = VFS.restoreFromTrash(btn.dataset.restore);
+                    if (res.ok) DesktopUI.toast('Restaurado en ' + res.restoredTo);
+                };
+            });
+
+            this.container.querySelectorAll('[data-delperm]').forEach(function(btn) {
+                btn.onclick = function() {
+                    VFS.removePermanent(btn.dataset.delperm, true);
+                    DesktopUI.toast('Eliminado definitivamente.');
+                };
+            });
+        };
+
+        TrashApp.prototype.destroy = function() {
+            window.removeEventListener('vfs-change', this.onVfsChange);
+        };
+
+        const Wizard = {
+            step: 1,
+            tempTheme: 'dark',
+            tempWp: 'wp-default',
+
+            init: function() {
+                const self = this;
+                document.getElementById('wiz-btn-skip').onclick = function() { self.close(); };
+                document.getElementById('wiz-btn-prev').onclick = function() { self.prev(); };
+                document.getElementById('wiz-btn-next').onclick = function() { self.next(); };
+                document.getElementById('wiz-theme-dark').onclick = function() { self.selectTheme('dark'); };
+                document.getElementById('wiz-theme-light').onclick = function() { self.selectTheme('light'); };
+                document.querySelectorAll('#wiz-wp-grid [data-wp]').forEach(function(btn) {
+                    btn.onclick = function() { self.selectWp(btn.dataset.wp); };
+                });
+            },
+
+            open: function() {
+                this.step = 1;
+                document.getElementById('wiz-lang').value = SystemConfig.data.language;
+                document.getElementById('wiz-kb').value = SystemConfig.data.keyboard;
+                document.getElementById('wiz-tz').value = SystemConfig.data.timezone;
+                document.getElementById('wiz-user').value = SystemConfig.data.username;
+                document.getElementById('wiz-host').value = SystemConfig.data.hostname;
+                document.getElementById('wiz-ssid').value = SystemConfig.data.network.connectedSsid;
+                document.getElementById('wiz-ip').value = SystemConfig.data.network.ip;
+                this.tempTheme = SystemConfig.data.theme;
+                this.tempWp = SystemConfig.data.wallpaper;
+
+                this.updateView();
+                document.getElementById('welcome-wizard').classList.remove('hidden');
+            },
+
+            close: function() {
+                SystemConfig.data.wizardCompleted = true;
+                SystemConfig.save();
+                document.getElementById('welcome-wizard').classList.add('hidden');
+            },
+
+            selectTheme: function(t) {
+                this.tempTheme = t;
+                SystemConfig.data.theme = t;
+                SystemConfig.applyAll();
+                document.getElementById('wiz-theme-dark').classList.toggle('border-ubuntu-orange', t === 'dark');
+                document.getElementById('wiz-theme-light').classList.toggle('border-ubuntu-orange', t === 'light');
+            },
+
+            selectWp: function(wp) {
+                this.tempWp = wp;
+                SystemConfig.data.wallpaper = wp;
+                SystemConfig.applyAll();
+            },
+
+            updateView: function() {
+                for (let i = 1; i <= 4; i++) {
+                    document.getElementById('wiz-step-' + i).classList.toggle('hidden', i !== this.step);
+                    const ind = document.getElementById('wiz-step-ind-' + i);
+                    if (i === this.step) {
+                        ind.className = 'font-bold text-ubuntu-orange';
+                    } else {
+                        ind.className = 'opacity-60';
+                    }
+                }
+                const prevBtn = document.getElementById('wiz-btn-prev');
+                const nextBtn = document.getElementById('wiz-btn-next');
+                prevBtn.classList.toggle('invisible', this.step === 1);
+                nextBtn.textContent = this.step === 4 ? 'Finalizar y Empezar' : 'Siguiente';
+            },
+
+            prev: function() {
+                if (this.step > 1) {
+                    this.step--;
+                    this.updateView();
+                }
+            },
+
+            next: function() {
+                if (this.step < 4) {
+                    this.step++;
+                    this.updateView();
+                } else {
+                    this.finish();
+                }
+            },
+
+            finish: function() {
+                const oldUser = SystemConfig.data.username;
+                const newUser = document.getElementById('wiz-user').value.trim().replace(/\s+/g, '') || 'usuario';
+                const newHost = document.getElementById('wiz-host').value.trim().replace(/\s+/g, '') || 'ubuntu-pc';
+
+                VFS.renameUserHome(oldUser, newUser);
+                SystemConfig.data.language = document.getElementById('wiz-lang').value;
+                SystemConfig.data.keyboard = document.getElementById('wiz-kb').value;
+                SystemConfig.data.timezone = document.getElementById('wiz-tz').value;
+                SystemConfig.data.username = newUser;
+                SystemConfig.data.hostname = newHost;
+                SystemConfig.data.theme = this.tempTheme;
+                SystemConfig.data.wallpaper = this.tempWp;
+                SystemConfig.data.network.connectedSsid = document.getElementById('wiz-ssid').value;
+                SystemConfig.data.network.ip = document.getElementById('wiz-ip').value.trim() || '192.168.1.45';
+                SystemConfig.data.wizardCompleted = true;
+
+                SystemConfig.save();
+                document.getElementById('welcome-wizard').classList.add('hidden');
+                DesktopUI.toast('¡Configuración completada para ' + newUser + '@' + newHost + '!');
+            }
+        };
+
+        window.SystemConfig = SystemConfig;
+        window.VFS = VFS;
+        window.OSModal = OSModal;
+        window.DesktopUI = DesktopUI;
+        window.WM = WM;
+        window.Wizard = Wizard;
+
+        function bootUbuntuDesktop() {
+            if (window.__ubuntuBooted) return;
+            window.__ubuntuBooted = true;
+
+            Wizard.init();
+            SystemConfig.load();
+            VFS.init().then(function() {
+                DesktopUI.init();
+                WM.openApp('files');
+                WM.openApp('terminal');
+
+                if (!SystemConfig.data.wizardCompleted) {
+                    Wizard.open();
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootUbuntuDesktop);
+        } else {
+            bootUbuntuDesktop();
+        }
+    </script>
+</body>
+</html>
